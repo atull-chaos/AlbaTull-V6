@@ -10,10 +10,11 @@
 
   /* ── Password Gate ─────────────────────────────── */
   #gate{display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0a0a}
-  #gate form{text-align:center}
+  #gate-inner{text-align:center}
   #gate h1{font-size:1.6rem;margin-bottom:1rem;letter-spacing:2px;color:#ccc}
-  #gate input{padding:12px 20px;font-size:1rem;border:1px solid #333;border-radius:8px;background:#111;color:#fff;width:260px;text-align:center}
-  #gate input:focus{outline:none;border-color:#4a90d9}
+  #pw-container div{display:inline-block;padding:12px 20px;font-size:1rem;border:1px solid #333;border-radius:8px;background:#111;color:#fff;width:260px;text-align:center;cursor:text;min-height:46px;outline:none;-webkit-text-security:disc;font-family:monospace}
+  #pw-container div:focus{border-color:#4a90d9}
+  #pw-container div:empty::before{content:'Enter password';color:#666;-webkit-text-security:none;font-family:'Segoe UI',system-ui,sans-serif}
   #gate .error{color:#e74c3c;margin-top:8px;font-size:.85rem}
 
   /* ── Main App ──────────────────────────────────── */
@@ -82,16 +83,13 @@
 </head>
 <body>
 
-<!-- Password Gate -->
+<!-- Password Gate — input is created by JS so password managers can't detect it -->
 <div id="gate">
-  <form onsubmit="return checkPassword()" autocomplete="off">
+  <div id="gate-inner">
     <h1>GALLERY ORDER</h1>
-    <!-- Hidden decoy to trick autofill -->
-    <input type="text" name="fake_user" style="display:none" tabindex="-1">
-    <input type="password" name="fake_pass" style="display:none" tabindex="-1">
-    <input type="text" id="pw" name="gallery_code_xz" placeholder="Enter password" autofocus autocomplete="new-password" data-1p-ignore="true" data-lpignore="true" data-protonpass-ignore="true" data-form-type="other" style="-webkit-text-security:disc" onfocus="this.value=''">
+    <div id="pw-container"></div>
     <div class="error" id="pw-error"></div>
-  </form>
+  </div>
 </div>
 
 <!-- Main App -->
@@ -136,9 +134,30 @@ let pinnedIds = [];      // ordered array of photo _ids (max 12)
 let categories = [];     // all categories
 let currentCatSlug = '';
 
-// ── Password ────────────────────────────────────────
+// ── Password (uses contentEditable div — invisible to password managers) ──
+// Create the "input" after a delay so autofill scanners miss it entirely
+setTimeout(() => {
+  const container = document.getElementById('pw-container');
+  const div = document.createElement('div');
+  div.contentEditable = 'true';
+  div.spellcheck = false;
+  div.setAttribute('data-placeholder', 'Enter password');
+  container.appendChild(div);
+  div.focus();
+
+  // Submit on Enter key
+  div.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      checkPassword();
+    }
+  });
+}, 500);
+
 async function checkPassword() {
-  const pw = document.getElementById('pw').value;
+  const div = document.querySelector('#pw-container div');
+  if (!div) return;
+  const pw = div.textContent.trim();
   const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw))))
     .map(b => b.toString(16).padStart(2,'0')).join('');
   if (hash === '93a2333edbe99e65960b31b0022616aeff99407fbbc03cf98ba50ffc6598bf5d') {
@@ -147,8 +166,9 @@ async function checkPassword() {
     loadCategories();
   } else {
     document.getElementById('pw-error').textContent = 'Wrong password';
+    div.textContent = '';
+    div.focus();
   }
-  return false;
 }
 
 // ── Sanity Helpers ──────────────────────────────────
