@@ -43,7 +43,7 @@ export function urlFor(source) {
  */
 export async function getAllPhotos() {
   return client.fetch(`
-    *[_type == "photo"] | order(category->name asc, title asc) {
+    *[_type == "photo"] | order(coalesce(displayOrder, 9999) asc, category->name asc, title asc) {
       _id,
       title,
       "slug": slug.current,
@@ -54,6 +54,7 @@ export async function getAllPhotos() {
       audio,
       video,
       featured,
+      displayOrder,
       metadata
     }
   `);
@@ -105,8 +106,8 @@ export async function getAllCategories() {
         "photoCount": count(*[_type == "photo" && (category._ref == ^._id || ^._id in additionalCategories[]._ref)])
       },
       "photoCount": count(*[_type == "photo" && (category._ref == ^._id || ^._id in additionalCategories[]._ref)]),
-      "previewPhotos": *[_type == "photo" && (category._ref == ^._id || ^._id in additionalCategories[]._ref)] | order(title asc) [0...12] {
-        _id, title, "slug": slug.current, image
+      "previewPhotos": *[_type == "photo" && (category._ref == ^._id || ^._id in additionalCategories[]._ref)] | order(coalesce(displayOrder, 9999) asc, title asc) [0...12] {
+        _id, title, "slug": slug.current, image, displayOrder
       }
     }
   `);
@@ -121,7 +122,7 @@ export async function getPhotosByCategory(categorySlug) {
     *[_type == "photo" && (
       category->slug.current == $categorySlug ||
       $categorySlug in additionalCategories[]->slug.current
-    )] | order(title asc) {
+    )] | order(coalesce(displayOrder, 9999) asc, title asc) {
       _id,
       title,
       "slug": slug.current,
@@ -130,6 +131,7 @@ export async function getPhotosByCategory(categorySlug) {
       audio,
       video,
       featured,
+      displayOrder,
       category->{name, "slug": slug.current},
       "additionalCategories": additionalCategories[]->{name, "slug": slug.current}
     }
@@ -146,7 +148,7 @@ export async function getPhotosByParentCategory(parentSlug) {
       category->parentCategory->slug.current == $parentSlug ||
       category->slug.current == $parentSlug ||
       $parentSlug in additionalCategories[]->parentCategory->slug.current
-    )] | order(title asc) {
+    )] | order(coalesce(displayOrder, 9999) asc, title asc) {
       _id,
       title,
       "slug": slug.current,
@@ -155,6 +157,7 @@ export async function getPhotosByParentCategory(parentSlug) {
       audio,
       video,
       featured,
+      displayOrder,
       category->{name, "slug": slug.current},
       "additionalCategories": additionalCategories[]->{name, "slug": slug.current}
     }

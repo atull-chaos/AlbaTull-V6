@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gallery Order Manager — Alba Tull</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#0a0a0a;color:#e0e0e0;min-height:100vh}
+
+  /* ── Password Gate ─────────────────────────────── */
+  #gate{display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0a0a}
+  #gate form{text-align:center}
+  #gate h1{font-size:1.6rem;margin-bottom:1rem;letter-spacing:2px;color:#ccc}
+  #gate input{padding:12px 20px;font-size:1rem;border:1px solid #333;border-radius:8px;background:#111;color:#fff;width:260px;text-align:center}
+  #gate input:focus{outline:none;border-color:#4a90d9}
+  #gate .error{color:#e74c3c;margin-top:8px;font-size:.85rem}
+
+  /* ── Main App ──────────────────────────────────── */
+  #app{display:none;max-width:1400px;margin:0 auto;padding:20px}
+  .toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:20px;padding:16px;background:#111;border-radius:10px;border:1px solid #222}
+  .toolbar select{padding:10px 14px;font-size:.95rem;border:1px solid #333;border-radius:8px;background:#1a1a1a;color:#fff;min-width:220px}
+  .toolbar select:focus{outline:none;border-color:#4a90d9}
+  .toolbar button{padding:10px 20px;font-size:.95rem;border:none;border-radius:8px;cursor:pointer;font-weight:600;transition:all .2s}
+  .btn-apply{background:#27ae60;color:#fff}
+  .btn-apply:hover{background:#2ecc71}
+  .btn-apply:disabled{background:#333;color:#666;cursor:not-allowed}
+  .btn-clear{background:#c0392b;color:#fff}
+  .btn-clear:hover{background:#e74c3c}
+  .btn-reset{background:#333;color:#ccc}
+  .btn-reset:hover{background:#444}
+
+  .status{padding:10px 16px;border-radius:8px;margin-bottom:16px;font-size:.9rem;display:none}
+  .status.info{display:block;background:#1a3a5c;border:1px solid #2980b9;color:#7fb3e0}
+  .status.success{display:block;background:#1a3c1a;border:1px solid #27ae60;color:#7fe07f}
+  .status.error{display:block;background:#3c1a1a;border:1px solid #c0392b;color:#e07f7f}
+
+  /* ── Sections ──────────────────────────────────── */
+  .section-label{font-size:1.1rem;font-weight:700;margin:16px 0 10px;padding:8px 0;border-bottom:1px solid #222}
+  .section-label.pinned{color:#f39c12}
+  .section-label.available{color:#7f8c8d}
+
+  /* ── Pinned Slots ──────────────────────────────── */
+  .pinned-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:24px;min-height:120px;padding:16px;background:#111;border-radius:10px;border:2px dashed #333}
+  .pinned-slot{position:relative;aspect-ratio:1;background:#1a1a1a;border-radius:8px;border:2px solid #333;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;transition:all .2s}
+  .pinned-slot.empty{border-style:dashed;opacity:.4}
+  .pinned-slot.empty .slot-num{font-size:2rem;color:#333}
+  .pinned-slot.filled{border-color:#f39c12}
+  .pinned-slot.filled:hover{border-color:#e74c3c}
+  .pinned-slot.filled:hover::after{content:'✕ Remove';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(231,76,60,.8);color:#fff;font-weight:700;font-size:.85rem;z-index:5}
+  .pinned-slot img{width:100%;height:100%;object-fit:cover}
+  .slot-num{position:absolute;top:4px;left:4px;background:rgba(243,156,18,.9);color:#000;font-weight:800;font-size:.75rem;width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:50%;z-index:3}
+  .pinned-slot .slot-title{position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,.8));font-size:.7rem;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* ── Photo Grid ────────────────────────────────── */
+  .photo-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:8px}
+  .photo-card{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;cursor:pointer;border:2px solid transparent;transition:all .2s}
+  .photo-card:hover{border-color:#4a90d9;transform:scale(1.03)}
+  .photo-card.is-pinned{opacity:.35;pointer-events:none;border-color:#f39c12}
+  .photo-card.is-pinned::after{content:'#' attr(data-pin-num);position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:1.8rem;font-weight:900;color:#f39c12}
+  .photo-card img{width:100%;height:100%;object-fit:cover}
+  .photo-card .card-title{position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,.85));font-size:.65rem;color:#ccc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* ── Loading ────────────────────────────────────── */
+  .loading{text-align:center;padding:60px;color:#555;font-size:1.1rem}
+  .loading .spinner{display:inline-block;width:32px;height:32px;border:3px solid #333;border-top-color:#4a90d9;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:12px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .count-badge{background:#222;padding:4px 10px;border-radius:12px;font-size:.85rem;color:#888}
+  .count-badge strong{color:#f39c12}
+
+  /* ── Responsive ─────────────────────────────────── */
+  @media(max-width:900px){
+    .pinned-grid{grid-template-columns:repeat(4,1fr)}
+    .photo-grid{grid-template-columns:repeat(5,1fr)}
+  }
+  @media(max-width:600px){
+    .pinned-grid{grid-template-columns:repeat(3,1fr)}
+    .photo-grid{grid-template-columns:repeat(3,1fr)}
+  }
+</style>
+</head>
+<body>
+
+<!-- Password Gate -->
+<div id="gate">
+  <form onsubmit="return checkPassword()">
+    <h1>GALLERY ORDER</h1>
+    <input type="password" id="pw" placeholder="Enter password" autofocus>
+    <div class="error" id="pw-error"></div>
+  </form>
+</div>
+
+<!-- Main App -->
+<div id="app">
+  <div class="toolbar">
+    <select id="category-select" onchange="loadCategory()">
+      <option value="">— Select a gallery —</option>
+    </select>
+    <span class="count-badge" id="pin-count"><strong>0</strong>/12 pinned</span>
+    <button class="btn-apply" id="btn-apply" disabled onclick="applyOrder()">Apply Order</button>
+    <button class="btn-clear" onclick="clearPins()">Clear All</button>
+    <button class="btn-reset" onclick="loadCategory()">↻ Reload</button>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <div class="section-label pinned">★ Pinned — First 12 Slots (click a slot to remove, click a photo below to add)</div>
+  <div class="pinned-grid" id="pinned-grid"></div>
+
+  <div class="section-label available" id="available-label">Available Photos</div>
+  <div class="photo-grid" id="photo-grid"></div>
+
+  <div class="loading" id="loading" style="display:none">
+    <div class="spinner"></div><br>Loading photos…
+  </div>
+</div>
+
+<script>
+// ── Config ──────────────────────────────────────────
+const PROJECT_ID = 'vo1f0ucj';
+const DATASET    = 'production';
+const API_VER    = '2024-01-01';
+const WRITE_TOKEN = 'skePaHb34ZaTMbrd8NbUMdd7XOrcee2MheG2OUrJ9VuvTsgkjNcluRz5agzruwbbYEtXXfvMgvSR34Xgz64XPMchQlhQoLMS1v9JSSGJUrmvQ380VTswdHje6yGcGtVxfWi43ralbrvAkloon9jn153nunAsAV8ZxjWMoK7asHvA8FBFpo1Z';
+const READ_TOKEN  = 'sk2U3t7Ey5IgT5S8FZGwfkqY6TBManFJPFPWV1Zz800IgXQJZOzITVNwZ7egyDqrJcMOg2rcjaVdxezx9FcwlOYidKsAnkqw3XtI3hu6MiAyInI6RGkuipfP8kRV4eJs2gNZsDreaDHAi1soShcqpWAMoS1g5pRLHuDnjKs6KCZdSdlM7e5i';
+const MAX_PINS = 12;
+
+const SANITY_API = `https://${PROJECT_ID}.api.sanity.io/v${API_VER}/data`;
+
+// ── State ───────────────────────────────────────────
+let allPhotos = [];      // photos for current category
+let pinnedIds = [];      // ordered array of photo _ids (max 12)
+let categories = [];     // all categories
+let currentCatSlug = '';
+
+// ── Password ────────────────────────────────────────
+async function checkPassword() {
+  const pw = document.getElementById('pw').value;
+  const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw))))
+    .map(b => b.toString(16).padStart(2,'0')).join('');
+  if (hash === '93a2333edbe99e65960b31b0022616aeff99407fbbc03cf98ba50ffc6598bf5d') {
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    loadCategories();
+  } else {
+    document.getElementById('pw-error').textContent = 'Wrong password';
+  }
+  return false;
+}
+
+// ── Sanity Helpers ──────────────────────────────────
+function sanityImageUrl(ref, w=200) {
+  if (!ref || !ref.asset) return '';
+  const id = ref.asset._ref || ref.asset._id || '';
+  const m = id.match(/^image-(.+)-(\d+x\d+)-(\w+)$/);
+  if (!m) return '';
+  return `https://cdn.sanity.io/images/${PROJECT_ID}/${DATASET}/${m[1]}-${m[2]}.${m[3]}?w=${w}&h=${w}&fit=crop&q=55`;
+}
+
+async function groq(query) {
+  const url = `${SANITY_API}/query/${DATASET}?query=${encodeURIComponent(query)}`;
+  const r = await fetch(url, { headers: { Authorization: `Bearer ${READ_TOKEN}` }});
+  const j = await r.json();
+  return j.result;
+}
+
+async function mutate(mutations) {
+  const r = await fetch(`${SANITY_API}/mutate/${DATASET}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${WRITE_TOKEN}`
+    },
+    body: JSON.stringify({ mutations })
+  });
+  return r.json();
+}
+
+// ── Load Categories ─────────────────────────────────
+async function loadCategories() {
+  showStatus('Loading categories…', 'info');
+  categories = await groq(`
+    *[_type == "category"] | order(order asc, name asc) {
+      _id, name, "slug": slug.current,
+      "isParent": coalesce(isParent, false),
+      "parentCategory": parentCategory->{name, "slug": slug.current},
+      "children": *[_type == "category" && parentCategory._ref == ^._id] | order(order asc, name asc) {
+        _id, name, "slug": slug.current
+      },
+      "photoCount": count(*[_type == "photo" && (category._ref == ^._id || ^._id in additionalCategories[]._ref)])
+    }
+  `);
+
+  const sel = document.getElementById('category-select');
+  sel.innerHTML = '<option value="">— Select a gallery —</option>';
+
+  // Group by parent/child
+  const parents = categories.filter(c => c.isParent);
+  const standalones = categories.filter(c => !c.isParent && !c.parentCategory);
+  const children = categories.filter(c => c.parentCategory);
+
+  // Add parents with their children as optgroups
+  parents.forEach(p => {
+    const group = document.createElement('optgroup');
+    group.label = `${p.name} (${p.photoCount})`;
+    // Parent "All" option
+    const opt = document.createElement('option');
+    opt.value = `parent:${p.slug}`;
+    opt.textContent = `${p.name} — All (${p.photoCount})`;
+    group.appendChild(opt);
+    // Children
+    const kids = children.filter(c => c.parentCategory.slug === p.slug);
+    kids.forEach(k => {
+      const ko = document.createElement('option');
+      ko.value = k.slug;
+      ko.textContent = `  ${k.name} (${k.photoCount})`;
+      group.appendChild(ko);
+    });
+    sel.appendChild(group);
+  });
+
+  // Standalones
+  if (standalones.length > 0) {
+    const group = document.createElement('optgroup');
+    group.label = 'Other';
+    standalones.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.slug;
+      opt.textContent = `${s.name} (${s.photoCount})`;
+      group.appendChild(opt);
+    });
+    sel.appendChild(group);
+  }
+
+  hideStatus();
+}
+
+// ── Load Photos for Category ────────────────────────
+async function loadCategory() {
+  const val = document.getElementById('category-select').value;
+  if (!val) return;
+
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('photo-grid').innerHTML = '';
+  document.getElementById('pinned-grid').innerHTML = '';
+  pinnedIds = [];
+  updatePinCount();
+
+  let query;
+  if (val.startsWith('parent:')) {
+    const parentSlug = val.replace('parent:', '');
+    currentCatSlug = parentSlug;
+    query = `
+      *[_type == "photo" && (
+        category->parentCategory->slug.current == "${parentSlug}" ||
+        category->slug.current == "${parentSlug}" ||
+        "${parentSlug}" in additionalCategories[]->parentCategory->slug.current
+      )] | order(coalesce(displayOrder, 9999) asc, title asc) {
+        _id, title, "slug": slug.current, image, displayOrder,
+        category->{name, "slug": slug.current}
+      }
+    `;
+  } else {
+    currentCatSlug = val;
+    query = `
+      *[_type == "photo" && (
+        category->slug.current == "${val}" ||
+        "${val}" in additionalCategories[]->slug.current
+      )] | order(coalesce(displayOrder, 9999) asc, title asc) {
+        _id, title, "slug": slug.current, image, displayOrder,
+        category->{name, "slug": slug.current}
+      }
+    `;
+  }
+
+  allPhotos = await groq(query);
+  document.getElementById('loading').style.display = 'none';
+
+  // Pre-populate pinned list from existing displayOrder values
+  const ordered = allPhotos
+    .filter(p => p.displayOrder && p.displayOrder < 9999)
+    .sort((a,b) => a.displayOrder - b.displayOrder);
+  pinnedIds = ordered.map(p => p._id);
+
+  document.getElementById('available-label').textContent = `Available Photos (${allPhotos.length} total)`;
+  render();
+}
+
+// ── Render ──────────────────────────────────────────
+function render() {
+  renderPinnedGrid();
+  renderPhotoGrid();
+  updatePinCount();
+}
+
+function renderPinnedGrid() {
+  const grid = document.getElementById('pinned-grid');
+  grid.innerHTML = '';
+
+  for (let i = 0; i < MAX_PINS; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'pinned-slot';
+
+    if (i < pinnedIds.length) {
+      const photo = allPhotos.find(p => p._id === pinnedIds[i]);
+      if (photo) {
+        slot.className += ' filled';
+        slot.innerHTML = `
+          <span class="slot-num">${i+1}</span>
+          <img src="${sanityImageUrl(photo.image)}" alt="${photo.title}">
+          <div class="slot-title">${photo.title}</div>
+        `;
+        slot.onclick = () => removePin(i);
+      }
+    } else {
+      slot.className += ' empty';
+      slot.innerHTML = `<span class="slot-num" style="background:none;color:#333;font-size:1.5rem">${i+1}</span>`;
+    }
+
+    grid.appendChild(slot);
+  }
+}
+
+function renderPhotoGrid() {
+  const grid = document.getElementById('photo-grid');
+  grid.innerHTML = '';
+
+  allPhotos.forEach(photo => {
+    const card = document.createElement('div');
+    card.className = 'photo-card';
+
+    const pinIndex = pinnedIds.indexOf(photo._id);
+    if (pinIndex >= 0) {
+      card.className += ' is-pinned';
+      card.setAttribute('data-pin-num', pinIndex + 1);
+    }
+
+    card.innerHTML = `
+      <img src="${sanityImageUrl(photo.image)}" alt="${photo.title}" loading="lazy">
+      <div class="card-title">${photo.title}</div>
+    `;
+
+    if (pinIndex < 0) {
+      card.onclick = () => addPin(photo._id);
+    }
+
+    grid.appendChild(card);
+  });
+}
+
+// ── Pin/Unpin Actions ───────────────────────────────
+function addPin(photoId) {
+  if (pinnedIds.length >= MAX_PINS) {
+    showStatus(`Already at ${MAX_PINS} pins — remove one first`, 'error');
+    setTimeout(hideStatus, 2000);
+    return;
+  }
+  if (!pinnedIds.includes(photoId)) {
+    pinnedIds.push(photoId);
+    render();
+    enableApply();
+  }
+}
+
+function removePin(index) {
+  pinnedIds.splice(index, 1);
+  render();
+  enableApply();
+}
+
+function clearPins() {
+  pinnedIds = [];
+  render();
+  enableApply();
+}
+
+function enableApply() {
+  document.getElementById('btn-apply').disabled = false;
+}
+
+function updatePinCount() {
+  document.getElementById('pin-count').innerHTML = `<strong>${pinnedIds.length}</strong>/${MAX_PINS} pinned`;
+}
+
+// ── Apply Order to Sanity ───────────────────────────
+async function applyOrder() {
+  const btn = document.getElementById('btn-apply');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  showStatus('Saving display order to Sanity…', 'info');
+
+  try {
+    const mutations = [];
+
+    // 1. Clear displayOrder from ALL photos in this category that currently have one
+    const photosWithOrder = allPhotos.filter(p => p.displayOrder && p.displayOrder < 9999);
+    photosWithOrder.forEach(p => {
+      if (!pinnedIds.includes(p._id)) {
+        mutations.push({
+          patch: {
+            id: p._id,
+            unset: ['displayOrder']
+          }
+        });
+      }
+    });
+
+    // 2. Set displayOrder on pinned photos (1-indexed)
+    pinnedIds.forEach((id, i) => {
+      mutations.push({
+        patch: {
+          id: id,
+          set: { displayOrder: i + 1 }
+        }
+      });
+    });
+
+    if (mutations.length > 0) {
+      // Batch in groups of 50
+      for (let i = 0; i < mutations.length; i += 50) {
+        const batch = mutations.slice(i, i + 50);
+        const result = await mutate(batch);
+        if (result.error) throw new Error(result.error.description || 'Mutation failed');
+      }
+    }
+
+    showStatus(`✓ Saved! ${pinnedIds.length} photos pinned to top of gallery. Rebuild site to see changes.`, 'success');
+    btn.textContent = 'Apply Order';
+
+    // Reload to confirm
+    await loadCategory();
+
+  } catch (err) {
+    showStatus(`Error: ${err.message}`, 'error');
+    btn.disabled = false;
+    btn.textContent = 'Apply Order';
+  }
+}
+
+// ── Status Helpers ──────────────────────────────────
+function showStatus(msg, type) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = `status ${type}`;
+}
+function hideStatus() {
+  document.getElementById('status').className = 'status';
+}
+</script>
+</body>
+</html>

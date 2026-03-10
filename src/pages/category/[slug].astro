@@ -102,8 +102,9 @@ if (source === 'cache') {
         slug:  p.slug || p._id,
         img:   urlFor(p.image).width(600).quality(65).auto('format').url(),
         desc:  p.description || '',
-        cat:   p.category?.name || categoryName
-      }));
+        cat:   p.category?.name || categoryName,
+        displayOrder: p.displayOrder || 9999
+      })).sort((a, b) => a.displayOrder - b.displayOrder || a.title.localeCompare(b.title));
     }
   } catch (ce) {
     console.warn('Cache read failed for category:', slug, ce.message);
