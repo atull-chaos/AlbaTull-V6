@@ -84,9 +84,12 @@
 
 <!-- Password Gate -->
 <div id="gate">
-  <form onsubmit="return checkPassword()">
+  <form onsubmit="return checkPassword()" autocomplete="off">
     <h1>GALLERY ORDER</h1>
-    <input type="text" id="pw" placeholder="Enter password" autofocus autocomplete="off" data-1p-ignore data-lpignore="true" style="-webkit-text-security:disc">
+    <!-- Hidden decoy to trick autofill -->
+    <input type="text" name="fake_user" style="display:none" tabindex="-1">
+    <input type="password" name="fake_pass" style="display:none" tabindex="-1">
+    <input type="text" id="pw" name="gallery_code_xz" placeholder="Enter password" autofocus autocomplete="new-password" data-1p-ignore="true" data-lpignore="true" data-protonpass-ignore="true" data-form-type="other" style="-webkit-text-security:disc" onfocus="this.value=''">
     <div class="error" id="pw-error"></div>
   </form>
 </div>
