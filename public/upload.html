@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alba Tull — Bulk Photo Upload</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #fafaf9;
+      --surface: #ffffff;
+      --border: #e5e5e3;
+      --text: #1a1a1a;
+      --text-muted: #888880;
+      --accent: #1a1a1a;
+      --success: #22863a;
+      --error: #cb2431;
+      --blue: #0366d6;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 40px 24px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .header {
+      margin-bottom: 40px;
+    }
+
+    .header h1 {
+      font-family: 'Georgia', serif;
+      font-size: 32px;
+      font-weight: 400;
+      letter-spacing: -0.5px;
+    }
+
+    .header p {
+      color: var(--text-muted);
+      font-size: 14px;
+      margin-top: 8px;
+    }
+
+    /* ── Step Sections ── */
+    .step {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 28px;
+      margin-bottom: 20px;
+    }
+
+    .step-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .step h2 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    /* ── Category Select ── */
+    .category-select {
+      width: 100%;
+      padding: 12px 16px;
+      font-size: 15px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--text);
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 16px center;
+    }
+
+    .category-select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .category-count {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+
+    /* ── Drop Zone ── */
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 48px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--accent);
+      background: #f5f5f0;
+    }
+
+    .dropzone-icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+    }
+
+    .dropzone-text {
+      font-size: 15px;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .dropzone-hint {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .dropzone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    /* ── Preview Grid ── */
+    .preview-section {
+      margin-top: 20px;
+      display: none;
+    }
+
+    .preview-section.visible { display: block; }
+
+    .preview-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .preview-header h3 {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .preview-count {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 8px;
+      max-height: 400px;
+      overflow-y: auto;
+      padding: 4px;
+    }
+
+    .preview-item {
+      position: relative;
+      aspect-ratio: 1;
+      border-radius: 4px;
+      overflow: hidden;
+      background: var(--bg);
+      border: 1px solid var(--border);
+    }
+
+    .preview-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .preview-item .remove-btn {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.6);
+      color: white;
+      border: none;
+      font-size: 14px;
+      line-height: 22px;
+      text-align: center;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .preview-item:hover .remove-btn { opacity: 1; }
+
+    .preview-item .preview-name {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 16px 6px 4px;
+      font-size: 10px;
+      color: white;
+      background: linear-gradient(transparent, rgba(0,0,0,0.6));
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .preview-item.uploaded {
+      border-color: var(--success);
+    }
+
+    .preview-item.uploaded::after {
+      content: '\2713';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--success);
+      color: white;
+      font-size: 18px;
+      line-height: 32px;
+      text-align: center;
+    }
+
+    .preview-item.error {
+      border-color: var(--error);
+    }
+
+    .preview-item.uploading {
+      opacity: 0.6;
+    }
+
+    .preview-item .progress-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 3px;
+      background: var(--blue);
+      transition: width 0.3s;
+    }
+
+    /* ── Upload Button ── */
+    .upload-section {
+      display: none;
+    }
+
+    .upload-section.visible { display: block; }
+
+    .upload-btn {
+      width: 100%;
+      padding: 16px;
+      font-size: 15px;
+      font-weight: 600;
+      color: white;
+      background: var(--accent);
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .upload-btn:hover { opacity: 0.85; }
+
+    .upload-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* ── Progress Log ── */
+    .log-section {
+      display: none;
+      margin-top: 20px;
+    }
+
+    .log-section.visible { display: block; }
+
+    .progress-info {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .progress-text {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .progress-stats {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .progress-bar-outer {
+      width: 100%;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .progress-bar-inner {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 3px;
+      transition: width 0.3s;
+      width: 0%;
+    }
+
+    .log-entries {
+      max-height: 200px;
+      overflow-y: auto;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 12px;
+      line-height: 1.8;
+      color: var(--text-muted);
+      background: var(--bg);
+      border-radius: 6px;
+      padding: 12px 16px;
+    }
+
+    .log-entries .success { color: var(--success); }
+    .log-entries .error { color: var(--error); }
+    .log-entries .skip { color: var(--blue); }
+
+    /* ── Summary ── */
+    .summary {
+      display: none;
+      margin-top: 20px;
+      padding: 24px;
+      background: var(--surface);
+      border: 1px solid var(--success);
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .summary.visible { display: block; }
+
+    .summary h3 {
+      font-size: 18px;
+      color: var(--success);
+      margin-bottom: 8px;
+    }
+
+    .summary p {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .summary .next-steps {
+      margin-top: 16px;
+      font-size: 13px;
+      color: var(--text);
+      text-align: left;
+      background: var(--bg);
+      padding: 16px;
+      border-radius: 6px;
+      font-family: 'SF Mono', Monaco, monospace;
+      line-height: 1.8;
+    }
+
+    .clear-btn {
+      margin-top: 16px;
+      padding: 10px 24px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    /* ── Auth ── */
+    .auth-section {
+      margin-bottom: 20px;
+    }
+
+    .auth-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+
+    .auth-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--error);
+    }
+
+    .auth-dot.connected { background: var(--success); }
+
+    /* ── Password Gate ── */
+    .gate-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .gate-overlay.hidden { display: none; }
+
+    .gate-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 48px 40px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+    }
+
+    .gate-box h1 {
+      font-family: 'Georgia', serif;
+      font-size: 24px;
+      font-weight: 400;
+      margin-bottom: 8px;
+    }
+
+    .gate-box p {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 28px;
+    }
+
+    .gate-input {
+      width: 100%;
+      padding: 12px 16px;
+      font-size: 15px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      text-align: center;
+      letter-spacing: 2px;
+      margin-bottom: 16px;
+    }
+
+    .gate-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .gate-input.shake {
+      animation: shake 0.4s ease;
+      border-color: var(--error);
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-8px); }
+      40%, 80% { transform: translateX(8px); }
+    }
+
+    .gate-btn {
+      width: 100%;
+      padding: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      color: white;
+      background: var(--accent);
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .gate-btn:hover { opacity: 0.85; }
+
+    .gate-error {
+      font-size: 13px;
+      color: var(--error);
+      margin-top: 12px;
+      min-height: 20px;
+    }
+
+    .app-content { display: none; }
+    .app-content.visible { display: block; }
+  </style>
+</head>
+<body>
+  <!-- Password Gate -->
+  <div class="gate-overlay" id="gateOverlay">
+    <div class="gate-box">
+      <h1>Alba Tull</h1>
+      <p>Enter the access code to continue</p>
+      <input type="password" class="gate-input" id="gateInput" placeholder="Access code" autofocus>
+      <button class="gate-btn" id="gateBtn">Enter</button>
+      <div class="gate-error" id="gateError"></div>
+    </div>
+  </div>
+
+  <div class="container app-content" id="appContent">
+    <div class="header">
+      <h1>Bulk Photo Upload</h1>
+      <p>Upload multiple photos to a category at once. Images are auto-named from filenames.</p>
+    </div>
+
+    <!-- Connection Status -->
+    <div class="step auth-section">
+      <div class="step-label">Connection</div>
+      <div class="auth-status">
+        <div class="auth-dot" id="authDot"></div>
+        <span id="authText">Connecting to Sanity...</span>
+      </div>
+    </div>
+
+    <!-- Step 1: Pick Category -->
+    <div class="step">
+      <div class="step-label">Step 1</div>
+      <h2>Choose a Category</h2>
+      <select class="category-select" id="categorySelect" disabled>
+        <option value="">Loading categories...</option>
+      </select>
+      <div class="category-count" id="categoryCount"></div>
+    </div>
+
+    <!-- Step 2: Drop Images -->
+    <div class="step">
+      <div class="step-label">Step 2</div>
+      <h2>Add Your Photos</h2>
+      <div class="dropzone" id="dropzone">
+        <input type="file" multiple accept="image/jpeg,image/png,image/webp" id="fileInput">
+        <div class="dropzone-icon">+</div>
+        <div class="dropzone-text">Drag photos here or click to browse</div>
+        <div class="dropzone-hint">JPEG, PNG, or WebP — up to 200 images at once</div>
+      </div>
+
+      <div class="preview-section" id="previewSection">
+        <div class="preview-header">
+          <h3>Ready to Upload</h3>
+          <span class="preview-count" id="previewCount"></span>
+        </div>
+        <div class="preview-grid" id="previewGrid"></div>
+      </div>
+    </div>
+
+    <!-- Step 3: Upload -->
+    <div class="upload-section" id="uploadSection">
+      <button class="upload-btn" id="uploadBtn" disabled>Upload Photos</button>
+    </div>
+
+    <!-- Progress -->
+    <div class="log-section" id="logSection">
+      <div class="step">
+        <div class="progress-info">
+          <span class="progress-text" id="progressText">Uploading...</span>
+          <span class="progress-stats" id="progressStats"></span>
+        </div>
+        <div class="progress-bar-outer">
+          <div class="progress-bar-inner" id="progressBar"></div>
+        </div>
+        <div class="log-entries" id="logEntries"></div>
+      </div>
+    </div>
+
+    <!-- Summary -->
+    <div class="summary" id="summary">
+      <h3 id="summaryTitle">Upload Complete</h3>
+      <p id="summaryText"></p>
+      <div class="next-steps" id="nextSteps"></div>
+      <button class="clear-btn" id="clearBtn">Upload More Photos</button>
+    </div>
+  </div>
+
+  <!-- Password Gate Script -->
+  <script>
+    (function() {
+      // SHA-256 hash of the access code — change this to set a new password
+      // Current password: "albatull2026"
+      // To change: open browser console, run: crypto.subtle.digest('SHA-256', new TextEncoder().encode('yournewpassword')).then(b => console.log(Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2,'0')).join('')))
+      var ACCESS_HASH = '93a2333edbe99e65960b31b0022616aeff99407fbbc03cf98ba50ffc6598bf5d';
+
+      var overlay = document.getElementById('gateOverlay');
+      var input = document.getElementById('gateInput');
+      var btn = document.getElementById('gateBtn');
+      var errorEl = document.getElementById('gateError');
+      var appContent = document.getElementById('appContent');
+
+      // Check if already authenticated this session
+      if (sessionStorage.getItem('alba_upload_auth') === 'true') {
+        unlock();
+      }
+
+      async function hashPassword(pwd) {
+        var encoded = new TextEncoder().encode(pwd);
+        var buffer = await crypto.subtle.digest('SHA-256', encoded);
+        return Array.from(new Uint8Array(buffer)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+      }
+
+      async function checkPassword() {
+        var pwd = input.value.trim();
+        if (!pwd) return;
+
+        var hash = await hashPassword(pwd);
+        if (hash === ACCESS_HASH) {
+          sessionStorage.setItem('alba_upload_auth', 'true');
+          unlock();
+        } else {
+          errorEl.textContent = 'Incorrect access code';
+          input.classList.add('shake');
+          setTimeout(function() { input.classList.remove('shake'); }, 400);
+          input.value = '';
+          input.focus();
+        }
+      }
+
+      function unlock() {
+        overlay.classList.add('hidden');
+        appContent.classList.add('visible');
+        window.dispatchEvent(new Event('gate-unlocked'));
+      }
+
+      btn.addEventListener('click', checkPassword);
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') checkPassword();
+        errorEl.textContent = '';
+      });
+    })();
+  </script>
+
+  <!-- Sanity Client — uses direct REST API calls, no external dependencies -->
+  <script>
+    // Wait for password gate before initializing
+    function bootApp() {
+    (async function() {
+      'use strict';
+
+      // ── Configuration ─────────────────────────────────────────────
+      var CONFIG = {
+        projectId: 'vo1f0ucj',
+        dataset: 'production',
+        apiVersion: '2024-01-01',
+        token: 'skePaHb34ZaTMbrd8NbUMdd7XOrcee2MheG2OUrJ9VuvTsgkjNcluRz5agzruwbbYEtXXfvMgvSR34Xgz64XPMchQlhQoLMS1v9JSSGJUrmvQ380VTswdHje6yGcGtVxfWi43ralbrvAkloon9jn153nunAsAV8ZxjWMoK7asHvA8FBFpo1Z'
+      };
+
+      // ── Lightweight Sanity REST client (no SDK needed) ────────────
+      var API_BASE = 'https://' + CONFIG.projectId + '.api.sanity.io/v' + CONFIG.apiVersion;
+      var ASSETS_URL = API_BASE + '/assets/images/' + CONFIG.dataset;
+      var MUTATE_URL = API_BASE + '/data/mutate/' + CONFIG.dataset;
+      var QUERY_URL  = API_BASE + '/data/query/' + CONFIG.dataset;
+      var DOC_URL    = API_BASE + '/data/doc/' + CONFIG.dataset;
+
+      var authHeader = { 'Authorization': 'Bearer ' + CONFIG.token };
+
+      // Query Sanity (GROQ) — GET request, no Content-Type needed
+      async function sanityFetch(query) {
+        var url = QUERY_URL + '?query=' + encodeURIComponent(query);
+        var res = await fetch(url, { headers: authHeader });
+        if (!res.ok) throw new Error('Query failed: ' + res.status);
+        var data = await res.json();
+        return data.result;
+      }
+
+      // Get a single document by ID — GET request
+      async function getDocument(id) {
+        var url = DOC_URL + '/' + encodeURIComponent(id);
+        var res = await fetch(url, { headers: authHeader });
+        if (!res.ok) return null;
+        var data = await res.json();
+        return data.documents && data.documents[0] || null;
+      }
+
+      // Upload an image asset (binary) — POST with image Content-Type
+      async function uploadImage(file) {
+        var res = await fetch(ASSETS_URL + '?filename=' + encodeURIComponent(file.name), {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + CONFIG.token,
+            'Content-Type': file.type
+          },
+          body: file
+        });
+        if (!res.ok) {
+          var errText = await res.text();
+          throw new Error('Upload failed: ' + res.status + ' ' + errText);
+        }
+        var data = await res.json();
+        return data.document;
+      }
+
+      // Create or replace a document — POST with JSON Content-Type
+      async function createOrReplace(doc) {
+        var res = await fetch(MUTATE_URL, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + CONFIG.token,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            mutations: [{ createOrReplace: doc }]
+          })
+        });
+        if (!res.ok) {
+          var errText = await res.text();
+          throw new Error('Mutation failed: ' + res.status + ' ' + errText);
+        }
+        return res.json();
+      }
+
+      var categories = [];
+      var selectedFiles = [];
+      var selectedCategoryId = '';
+      var selectedCategoryName = '';
+
+      // ── DOM Elements ──────────────────────────────────────────────
+      var authDot = document.getElementById('authDot');
+      var authText = document.getElementById('authText');
+      var categorySelect = document.getElementById('categorySelect');
+      var categoryCount = document.getElementById('categoryCount');
+      var dropzone = document.getElementById('dropzone');
+      var fileInput = document.getElementById('fileInput');
+      var previewSection = document.getElementById('previewSection');
+      var previewCount = document.getElementById('previewCount');
+      var previewGrid = document.getElementById('previewGrid');
+      var uploadSection = document.getElementById('uploadSection');
+      var uploadBtn = document.getElementById('uploadBtn');
+      var logSection = document.getElementById('logSection');
+      var progressText = document.getElementById('progressText');
+      var progressStats = document.getElementById('progressStats');
+      var progressBar = document.getElementById('progressBar');
+      var logEntries = document.getElementById('logEntries');
+      var summary = document.getElementById('summary');
+      var summaryTitle = document.getElementById('summaryTitle');
+      var summaryText = document.getElementById('summaryText');
+      var nextSteps = document.getElementById('nextSteps');
+      var clearBtn = document.getElementById('clearBtn');
+
+      // ── Initialize (test connection + load categories) ─────────────
+      async function init() {
+        try {
+          // Test connection by fetching categories via REST API
+          categories = await sanityFetch(
+            '*[_type == "category" && coalesce(isParent, false) != true] | order(name asc) { _id, name, "slug": slug.current, "photoCount": count(*[_type == "photo" && category._ref == ^._id]) }'
+          );
+
+          authDot.classList.add('connected');
+          authText.textContent = 'Connected to Sanity (' + categories.length + ' categories)';
+
+          // Populate dropdown
+          categorySelect.innerHTML = '<option value="">— Select a category —</option>';
+          categories.forEach(function(cat) {
+            var opt = document.createElement('option');
+            opt.value = cat._id;
+            opt.textContent = cat.name + ' (' + cat.photoCount + ' photos)';
+            opt.dataset.slug = cat.slug;
+            opt.dataset.name = cat.name;
+            opt.dataset.count = cat.photoCount;
+            categorySelect.appendChild(opt);
+          });
+          categorySelect.disabled = false;
+
+        } catch (e) {
+          authText.textContent = 'Connection failed: ' + e.message;
+          console.error('Sanity init failed:', e);
+        }
+      }
+
+      // ── Helpers ───────────────────────────────────────────────────
+      function slugify(text) {
+        return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      }
+
+      function titleFromFilename(filename) {
+        return filename.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
+      }
+
+      function sleep(ms) {
+        return new Promise(function(r) { setTimeout(r, ms); });
+      }
+
+      function log(msg, type) {
+        var line = document.createElement('div');
+        if (type) line.className = type;
+        line.textContent = msg;
+        logEntries.appendChild(line);
+        logEntries.scrollTop = logEntries.scrollHeight;
+      }
+
+      // ── Category Selection ────────────────────────────────────────
+      categorySelect.addEventListener('change', function() {
+        var opt = categorySelect.options[categorySelect.selectedIndex];
+        selectedCategoryId = categorySelect.value;
+        selectedCategoryName = opt.dataset.name || '';
+
+        if (selectedCategoryId) {
+          categoryCount.textContent = selectedCategoryName + ' currently has ' + opt.dataset.count + ' photos. New uploads will be named "' + selectedCategoryName + ' ' + (parseInt(opt.dataset.count) + 1) + '", "' + selectedCategoryName + ' ' + (parseInt(opt.dataset.count) + 2) + '", etc.';
+        } else {
+          categoryCount.textContent = '';
+        }
+
+        updateUploadButton();
+      });
+
+      // ── File Selection ────────────────────────────────────────────
+      dropzone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+      });
+
+      dropzone.addEventListener('dragleave', function() {
+        dropzone.classList.remove('dragover');
+      });
+
+      dropzone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        handleFiles(e.dataTransfer.files);
+      });
+
+      fileInput.addEventListener('change', function() {
+        handleFiles(fileInput.files);
+      });
+
+      function handleFiles(fileList) {
+        var newFiles = Array.from(fileList).filter(function(f) {
+          return /\.(jpe?g|png|webp)$/i.test(f.name);
+        });
+
+        if (newFiles.length === 0) return;
+
+        selectedFiles = selectedFiles.concat(newFiles);
+        renderPreviews();
+        updateUploadButton();
+      }
+
+      function renderPreviews() {
+        previewGrid.innerHTML = '';
+
+        selectedFiles.forEach(function(file, i) {
+          var item = document.createElement('div');
+          item.className = 'preview-item';
+          item.id = 'preview-' + i;
+
+          var img = document.createElement('img');
+          img.src = URL.createObjectURL(file);
+          item.appendChild(img);
+
+          var name = document.createElement('div');
+          name.className = 'preview-name';
+          name.textContent = titleFromFilename(file.name);
+          item.appendChild(name);
+
+          var removeBtn = document.createElement('button');
+          removeBtn.className = 'remove-btn';
+          removeBtn.textContent = '\u00D7';
+          removeBtn.onclick = function() {
+            selectedFiles.splice(i, 1);
+            renderPreviews();
+            updateUploadButton();
+          };
+          item.appendChild(removeBtn);
+
+          previewGrid.appendChild(item);
+        });
+
+        previewCount.textContent = selectedFiles.length + ' image' + (selectedFiles.length !== 1 ? 's' : '');
+        previewSection.classList.toggle('visible', selectedFiles.length > 0);
+      }
+
+      function updateUploadButton() {
+        var ready = selectedCategoryId && selectedFiles.length > 0;
+        uploadSection.classList.toggle('visible', ready);
+        uploadBtn.disabled = !ready;
+
+        if (ready) {
+          uploadBtn.textContent = 'Upload ' + selectedFiles.length + ' Photo' + (selectedFiles.length !== 1 ? 's' : '') + ' to ' + selectedCategoryName;
+        }
+      }
+
+      // ── Upload Process ────────────────────────────────────────────
+      uploadBtn.addEventListener('click', startUpload);
+
+      async function startUpload() {
+        if (!selectedCategoryId || selectedFiles.length === 0) return;
+
+        uploadBtn.disabled = true;
+        categorySelect.disabled = true;
+        logSection.classList.add('visible');
+        logEntries.innerHTML = '';
+
+        // Get the current highest number for this category to continue the sequence
+        var catSlug = categorySelect.options[categorySelect.selectedIndex].dataset.slug;
+        var existingCount = parseInt(categorySelect.options[categorySelect.selectedIndex].dataset.count) || 0;
+
+        log('Starting upload of ' + selectedFiles.length + ' photos to ' + selectedCategoryName + '...');
+        log('Existing photos in category: ' + existingCount);
+        log('');
+
+        var uploaded = 0;
+        var skipped = 0;
+        var errors = 0;
+        var total = selectedFiles.length;
+
+        for (var i = 0; i < selectedFiles.length; i++) {
+          var file = selectedFiles[i];
+          var fileTitle = titleFromFilename(file.name);
+          var fileSlug = slugify(fileTitle);
+          var docId = 'photo-' + fileSlug;
+
+          var previewItem = document.getElementById('preview-' + i);
+          if (previewItem) previewItem.classList.add('uploading');
+
+          progressText.textContent = 'Uploading ' + (i + 1) + ' of ' + total + '...';
+          progressStats.textContent = uploaded + ' done, ' + skipped + ' skipped, ' + errors + ' errors';
+          progressBar.style.width = Math.round(((i) / total) * 100) + '%';
+
+          try {
+            // Check if photo already exists
+            var existing = await getDocument(docId);
+            if (existing && existing.image) {
+              log('  SKIP: "' + fileTitle + '" already exists', 'skip');
+              skipped++;
+              if (previewItem) {
+                previewItem.classList.remove('uploading');
+                previewItem.classList.add('uploaded');
+              }
+              continue;
+            }
+
+            // Upload image asset via REST API
+            var asset = await uploadImage(file);
+
+            // Create photo document
+            await createOrReplace({
+              _id: docId,
+              _type: 'photo',
+              title: fileTitle,
+              slug: { _type: 'slug', current: fileSlug },
+              image: {
+                _type: 'image',
+                asset: { _type: 'reference', _ref: asset._id }
+              },
+              category: { _type: 'reference', _ref: selectedCategoryId },
+              featured: false,
+              description: ''
+            });
+
+            log('  OK: "' + fileTitle + '"', 'success');
+            uploaded++;
+
+            if (previewItem) {
+              previewItem.classList.remove('uploading');
+              previewItem.classList.add('uploaded');
+            }
+
+            // Rate limit: ~2 uploads/sec
+            await sleep(500);
+
+          } catch (err) {
+            log('  ERROR: "' + fileTitle + '" — ' + err.message, 'error');
+            errors++;
+            if (previewItem) {
+              previewItem.classList.remove('uploading');
+              previewItem.classList.add('error');
+            }
+          }
+        }
+
+        // Done
+        progressBar.style.width = '100%';
+        progressText.textContent = 'Complete';
+        progressStats.textContent = uploaded + ' uploaded, ' + skipped + ' skipped, ' + errors + ' errors';
+
+        log('');
+        log('Done! ' + uploaded + ' photos uploaded to ' + selectedCategoryName + '.');
+
+        // Show summary
+        summary.classList.add('visible');
+        summaryTitle.textContent = errors === 0 ? 'Upload Complete' : 'Upload Finished with Errors';
+        summaryText.textContent = uploaded + ' photos uploaded, ' + skipped + ' skipped, ' + errors + ' errors.';
+
+        nextSteps.innerHTML =
+          'To make these live on the website, run on the Mac terminal:<br><br>' +
+          'cd ~/Library/Mobile\\ Documents/com~apple~CloudDocs/📁\\ Photos\\ \\&\\ Media/albatull-v5<br>' +
+          'node seed-cache.mjs<br>' +
+          'npm run deploy';
+      }
+
+      // ── Reset ─────────────────────────────────────────────────────
+      clearBtn.addEventListener('click', function() {
+        selectedFiles = [];
+        previewGrid.innerHTML = '';
+        previewSection.classList.remove('visible');
+        uploadSection.classList.remove('visible');
+        logSection.classList.remove('visible');
+        summary.classList.remove('visible');
+        categorySelect.disabled = false;
+        fileInput.value = '';
+        categoryCount.textContent = '';
+        init(); // Refresh categories to show updated counts
+      });
+
+      // ── Start ─────────────────────────────────────────────────────
+      await init();
+    })();
+    } // end bootApp
+
+    // Boot immediately if already authenticated, otherwise wait for gate
+    if (sessionStorage.getItem('alba_upload_auth') === 'true') {
+      bootApp();
+    } else {
+      window.addEventListener('gate-unlocked', bootApp);
+    }
+  </script>
+</body>
+</html>

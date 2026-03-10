@@ -1,0 +1,227 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { fetchAllWithCache, getPhotoBySlug as getSanityPhotoBySlug, urlFor } from '../../lib/sanity.js';
+import { PHOTOS as LOCAL_PHOTOS, catSlug, getRelatedPhotos } from '../../data/photos.js';
+
+// ── Generate paths from Sanity → Cache → Local fallback ─────────
+export async function getStaticPaths() {
+  const { photos, source } = await fetchAllWithCache();
+
+  if ((source === 'sanity' || source === 'cache') && photos && photos.length > 0) {
+    return photos
+      .filter(p => p.slug && p.image)
+      .map(p => ({
+        params: { slug: p.slug },
+        props: { source }
+      }));
+  }
+
+  // Local fallback
+  return LOCAL_PHOTOS.map(photo => ({
+    params: { slug: photo.slug },
+    props: { source: 'local', photo }
+  }));
+}
+
+const { slug } = Astro.params;
+const { source } = Astro.props;
+
+// ── Fetch photo detail ──────────────────────────────────────────
+let photo = null;
+let related = [];
+let categorySlug = '';
+let metadata = null;
+let additionalCategories = [];
+
+if (source === 'cache') {
+  try {
+    const { readCache } = await import('../../lib/sanity-cache.js');
+    const cached = (readCache() || { photos: [] }).photos.find(p => p.slug === slug);
+    if (cached && cached.image) {
+      photo = {
+        id:    cached._id,
+        title: cached.title || 'Untitled',
+        slug:  cached.slug,
+        img:   urlFor(cached.image).width(900).quality(65).auto('format').url(),
+        desc:  cached.description || '',
+        cat:   cached.category?.name || 'Uncategorized',
+        audio: cached.audio?.asset?._ref || null
+      };
+      categorySlug = cached.category?.slug || catSlug(photo.cat);
+      metadata = cached.metadata || null;
+      additionalCategories = cached.additionalCategories || [];
+
+      // Get ALL related photos from same category (no limit)
+      const allCached = (readCache() || { photos: [] }).photos;
+      related = allCached
+        .filter(p => p.category?.slug === categorySlug && p.slug !== slug && p.image)
+        .map(r => ({
+          id:    r._id,
+          title: r.title || 'Untitled',
+          slug:  r.slug,
+          img:   urlFor(r.image).width(600).quality(80).auto('format').url(),
+          cat:   r.category?.name || photo.cat
+        }));
+    }
+  } catch (ce) {
+    console.warn('Cache read failed for photo:', slug, ce.message);
+  }
+} else if (source === 'sanity') {
+  try {
+    const sp = await getSanityPhotoBySlug(slug);
+    if (sp && sp.image) {
+      photo = {
+        id:    sp._id,
+        title: sp.title || 'Untitled',
+        slug:  sp.slug,
+        img:   urlFor(sp.image).width(900).quality(65).auto('format').url(),
+        desc:  sp.description || '',
+        cat:   sp.category?.name || 'Uncategorized',
+        audio: sp.audio?.asset?._ref || null
+      };
+      categorySlug = sp.category?.slug || catSlug(photo.cat);
+      metadata = sp.metadata || null;
+      additionalCategories = sp.additionalCategories || [];
+
+      if (sp.related && sp.related.length > 0) {
+        related = sp.related
+          .filter(r => r.image)
+          .map(r => ({
+            id:    r._id,
+            title: r.title || 'Untitled',
+            slug:  r.slug,
+            img:   urlFor(r.image).width(600).quality(80).auto('format').url(),
+            cat:   r.category?.name || photo.cat
+          }));
+      }
+    }
+  } catch (e) {
+    console.warn('Sanity photo fetch failed for slug:', slug, e.message);
+  }
+}
+
+if (!photo) {
+  const localPhoto = Astro.props.photo || LOCAL_PHOTOS.find(p => p.slug === slug);
+  if (localPhoto) {
+    photo = localPhoto;
+    categorySlug = catSlug(localPhoto.cat);
+    related = getRelatedPhotos(localPhoto);
+  }
+}
+
+// ── Build metadata string ──────────────────────────────────────
+const detailParts = [];
+if (metadata?.camera) detailParts.push(metadata.camera);
+if (metadata?.lens) detailParts.push(metadata.lens);
+if (metadata?.focalLength) detailParts.push(metadata.focalLength);
+if (metadata?.aperture) detailParts.push(metadata.aperture);
+if (metadata?.iso) detailParts.push(`ISO ${metadata.iso}`);
+if (metadata?.dateTaken) {
+  try { detailParts.push(String(new Date(metadata.dateTaken).getFullYear())); } catch {}
+}
+const detailsString = detailParts.length > 0 ? detailParts.join('. ') + '.' : '';
+
+// ── Detect image orientation from Sanity asset ref ──────────────
+// Asset refs: image-{hash}-{width}x{height}-{format}
+let orientation = 'portrait';
+
+function getOrientation(imageObj) {
+  const ref = imageObj?.asset?._ref || '';
+  const parts = ref.split('-');
+  if (parts.length >= 3) {
+    const dims = parts[parts.length - 2];
+    if (dims && dims.includes('x')) {
+      const [w, h] = dims.split('x').map(Number);
+      if (w && h) {
+        const ratio = w / h;
+        if (ratio > 1.2) return 'landscape';
+        if (ratio < 0.85) return 'portrait';
+        return 'square';
+      }
+    }
+  }
+  return 'portrait';
+}
+
+// Detect orientation from cached/sanity image data
+if (source === 'cache') {
+  try {
+    const { readCache } = await import('../../lib/sanity-cache.js');
+    const cached = (readCache() || { photos: [] }).photos.find(p => p.slug === slug);
+    if (cached?.image) orientation = getOrientation(cached.image);
+  } catch {}
+} else if (source === 'sanity') {
+  try {
+    const sp = await getSanityPhotoBySlug(slug);
+    if (sp?.image) orientation = getOrientation(sp.image);
+  } catch {}
+}
+---
+
+{photo && (
+  <BaseLayout title={`${photo.title} — Alba Tull`} description={photo.desc} ogImage={photo.img}>
+    <div class={`detail-layout detail-layout--${orientation}`}>
+      <div class="detail-hero">
+        <img src={photo.img} alt={photo.title} />
+      </div>
+      <div class="detail-sidebar">
+        <a class="detail-back" href={`/category/${categorySlug}/`}>&larr; Back to {photo.cat}</a>
+        <h1 class="detail-title">{photo.title}</h1>
+        {photo.desc && <p class="detail-description">{photo.desc}</p>}
+
+        <div class="detail-meta-table">
+          {detailsString && (
+            <div class="detail-meta-row">
+              <div class="detail-meta-label">Details</div>
+              <div class="detail-meta-value">{detailsString}</div>
+            </div>
+          )}
+          {metadata?.location && (
+            <div class="detail-meta-row">
+              <div class="detail-meta-label">Location</div>
+              <div class="detail-meta-value">{metadata.location}</div>
+            </div>
+          )}
+          <div class="detail-meta-row">
+            <div class="detail-meta-label">Collection</div>
+            <div class="detail-meta-value">
+              <a href={`/category/${categorySlug}/`}>{photo.cat}</a>
+            </div>
+          </div>
+          {additionalCategories.length > 0 && (
+            <div class="detail-meta-row">
+              <div class="detail-meta-label">Also In</div>
+              <div class="detail-meta-value detail-also-in">
+                {additionalCategories.map((ac, i) => (
+                  <Fragment>
+                    <a href={`/category/${ac.slug}/`}>{ac.name}</a>
+                    {i < additionalCategories.length - 1 && ', '}
+                  </Fragment>
+                ))}
+              </div>
+            </div>
+          )}
+          <div class="detail-meta-row">
+            <div class="detail-meta-label">Words by Alba</div>
+            <div class="detail-meta-value">
+              <div class="detail-play-voice">&#9654; Play Voice Note</div>
+            </div>
+          </div>
+        </div>
+
+        {related.length > 0 && (
+          <div class="related-section">
+            <h2 class="related-title">Related Shots</h2>
+            <div class="related-grid">
+              {related.map(r => (
+                <a class="related-item" href={`/photo/${r.slug}/`}>
+                  <img src={r.img} alt={r.title} loading="lazy" />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  </BaseLayout>
+)}

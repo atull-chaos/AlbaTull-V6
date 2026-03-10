@@ -1,0 +1,22 @@
+{
+  "name": "alba-tull-studio",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Sanity Studio for Alba Tull Portfolio",
+  "scripts": {
+    "dev": "sanity dev",
+    "build": "sanity build",
+    "deploy": "sanity deploy",
+    "start": "sanity start"
+  },
+  "dependencies": {
+    "sanity": "^3",
+    "@sanity/vision": "^3",
+    "react": "^18",
+    "react-dom": "^18",
+    "styled-components": "^6"
+  },
+  "devDependencies": {
+    "@sanity/eslint-config-studio": "^4"
+  }
+}

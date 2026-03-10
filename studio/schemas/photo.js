@@ -1,0 +1,97 @@
+import { defineType, defineField } from 'sanity';
+
+export default defineType({
+  name: 'photo',
+  title: 'Photo',
+  type: 'document',
+  fields: [
+    defineField({
+      name: 'title',
+      title: 'Title',
+      type: 'string',
+      description: 'Artwork title (e.g. "Amsterdam 1")',
+      validation: (Rule) => Rule.required(),
+    }),
+    defineField({
+      name: 'slug',
+      title: 'Slug',
+      type: 'slug',
+      description: 'URL path segment (auto-generated from title)',
+      options: { source: 'title', maxLength: 96 },
+      validation: (Rule) => Rule.required(),
+    }),
+    defineField({
+      name: 'image',
+      title: 'Image',
+      type: 'image',
+      description: 'The photograph (JPEG, PNG, WebP)',
+      options: { hotspot: true },
+      validation: (Rule) => Rule.required(),
+    }),
+    defineField({
+      name: 'category',
+      title: 'Primary Category',
+      type: 'reference',
+      to: [{ type: 'category' }],
+      description: 'Primary collection this photo belongs to',
+      validation: (Rule) => Rule.required(),
+    }),
+    defineField({
+      name: 'additionalCategories',
+      title: 'Additional Categories',
+      type: 'array',
+      of: [{ type: 'reference', to: [{ type: 'category' }] }],
+      description: 'Other collections this photo also appears in (e.g. a celebrity photo that also appears in Commercial)',
+    }),
+    defineField({
+      name: 'description',
+      title: 'Description',
+      type: 'text',
+      description: 'Story behind the photo (shown on detail page)',
+      rows: 4,
+    }),
+    defineField({
+      name: 'audio',
+      title: 'Audio Narration',
+      type: 'file',
+      description: 'Optional MP3/WAV voice narration for this artwork',
+      options: { accept: 'audio/*' },
+    }),
+    defineField({
+      name: 'video',
+      title: 'Video',
+      type: 'file',
+      description: 'Optional MP4/WebM for animated/video artworks',
+      options: { accept: 'video/*' },
+    }),
+    defineField({
+      name: 'featured',
+      title: 'Featured (Picture of the Moment)',
+      type: 'boolean',
+      description: 'Show as the featured image on the home page',
+      initialValue: false,
+    }),
+    defineField({
+      name: 'metadata',
+      title: 'Metadata',
+      type: 'object',
+      description: 'Technical details about the photograph',
+      fields: [
+        defineField({ name: 'camera',       title: 'Camera',        type: 'string' }),
+        defineField({ name: 'lens',         title: 'Lens',          type: 'string' }),
+        defineField({ name: 'focalLength',  title: 'Focal Length',  type: 'string' }),
+        defineField({ name: 'aperture',     title: 'Aperture',      type: 'string' }),
+        defineField({ name: 'iso',          title: 'ISO',           type: 'string' }),
+        defineField({ name: 'shutterSpeed', title: 'Shutter Speed', type: 'string' }),
+        defineField({ name: 'dateTaken',    title: 'Date Taken',    type: 'date' }),
+        defineField({ name: 'location',     title: 'Location',      type: 'string' }),
+      ],
+    }),
+  ],
+  orderings: [
+    { title: 'Title A–Z', name: 'titleAsc', by: [{ field: 'title', direction: 'asc' }] },
+  ],
+  preview: {
+    select: { title: 'title', subtitle: 'category.name', media: 'image' },
+  },
+});

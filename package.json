@@ -1,0 +1,21 @@
+{
+  "name": "albatull-v3",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "deploy": "rm -rf .astro && astro build",
+    "preview": "astro preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@sanity/client": "^7.16.0",
+    "@sanity/image-url": "^2.0.3",
+    "astro": "^5.18.0",
+    "dotenv": "^17.3.1"
+  }
+}

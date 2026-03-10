@@ -1,0 +1,224 @@
+---
+interface Props {
+  title?: string;
+  description?: string;
+  ogImage?: string;
+}
+
+const {
+  title = 'Alba Tull - Photography',
+  description = 'Photography portfolio by Alba Tull',
+  ogImage = '/og-default.jpg'
+} = Astro.props;
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{title}</title>
+  <meta name="description" content={description}>
+  <meta property="og:title" content={title}>
+  <meta property="og:description" content={description}>
+  <meta property="og:image" content={ogImage}>
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800;900&family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles/global.css">
+</head>
+<body>
+  <nav class="nav-bar">
+    <a href="/" class="nav-logo">Alba Tull</a>
+    <div class="nav-links">
+      <a href="/collections/">Gallery</a>
+      <a href="/live/">Live</a>
+      <a href="/category/places/">Places</a>
+      <a href="/category/people/">People</a>
+      <a href="/category/sports/">Sports</a>
+      <a href="/category/botanical/">Botanical</a>
+      <a href="/category/experimentations/">Experimentations</a>
+      <a href="/category/misc/">Archives</a>
+      <a href="/about/">About</a>
+    </div>
+    <button class="nav-mobile-toggle" aria-label="Toggle menu" id="navToggle">
+      <span></span><span></span><span></span>
+    </button>
+  </nav>
+
+  <main>
+    <slot />
+  </main>
+
+  <!-- Copyright footer -->
+  <footer class="site-footer">
+    <p>&copy; {new Date().getFullYear()} Alba Tull. All rights reserved. All images on this site are protected by copyright law. Unauthorized use, reproduction, or distribution is strictly prohibited.</p>
+  </footer>
+
+  <script type="module" src="/scripts/main.js"></script>
+  <script>
+    // Mobile nav toggle
+    const toggle = document.getElementById('navToggle');
+    if (toggle) {
+      toggle.addEventListener('click', () => {
+        document.querySelector('.nav-links').classList.toggle('is-open');
+        toggle.classList.toggle('is-open');
+      });
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // Image Protection Suite — Multi-Layer Defense
+    // ══════════════════════════════════════════════════════════════
+
+    (function() {
+      'use strict';
+
+      // ── Layer 1: Right-Click Prevention on All Media ──────────
+      // Blocks context menu on images, videos, and all photo containers
+      var protectedSelectors = 'img, video, canvas, .mosaic-cell, .detail-hero, .grid-tile, .gallery-tile, .collection-thumb, .featured-link, .photo-grid, .gallery-grid';
+
+      document.addEventListener('contextmenu', function(e) {
+        if (e.target.tagName === 'IMG' || e.target.tagName === 'VIDEO' ||
+            e.target.tagName === 'CANVAS' || e.target.closest(protectedSelectors)) {
+          e.preventDefault();
+          return false;
+        }
+      });
+
+      // ── Layer 2: Drag Prevention ──────────────────────────────
+      // Prevents drag-and-drop saving of images
+      document.addEventListener('dragstart', function(e) {
+        if (e.target.tagName === 'IMG' || e.target.tagName === 'VIDEO' ||
+            e.target.tagName === 'CANVAS') {
+          e.preventDefault();
+          return false;
+        }
+      });
+
+      // ── Layer 3: Touch Callout Prevention (iOS/Mobile) ────────
+      // Prevents the iOS "Save Image" long-press popup
+      document.addEventListener('touchstart', function(e) {
+        if (e.target.tagName === 'IMG' || e.target.closest(protectedSelectors)) {
+          e.target.style.webkitTouchCallout = 'none';
+          e.target.style.webkitUserSelect = 'none';
+        }
+      }, { passive: true });
+
+      // ── Layer 4: Keyboard Shortcut Interception ───────────────
+      // Blocks Ctrl/Cmd+S (save), Ctrl/Cmd+Shift+I (DevTools),
+      // Ctrl/Cmd+U (view source), PrintScreen
+      document.addEventListener('keydown', function(e) {
+        var ctrl = e.ctrlKey || e.metaKey;
+
+        // Block Save Page (Ctrl/Cmd+S)
+        if (ctrl && e.key === 's') {
+          e.preventDefault();
+          return false;
+        }
+
+        // Block View Source (Ctrl/Cmd+U)
+        if (ctrl && e.key === 'u') {
+          e.preventDefault();
+          return false;
+        }
+
+        // Block PrintScreen key (Windows)
+        if (e.key === 'PrintScreen') {
+          e.preventDefault();
+          // Briefly flash overlay to disrupt capture
+          flashProtection();
+          return false;
+        }
+
+        // Block Ctrl/Cmd+Shift+S (screenshot tools)
+        if (ctrl && e.shiftKey && e.key === 's') {
+          e.preventDefault();
+          return false;
+        }
+
+        // Block PrtSc + Windows key combo
+        if (e.key === 'PrintScreen' && e.metaKey) {
+          e.preventDefault();
+          return false;
+        }
+      });
+
+      // ── Layer 5: Clipboard Protection ─────────────────────────
+      // Prevents copying images via clipboard
+      document.addEventListener('copy', function(e) {
+        var sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+          var container = sel.getRangeAt(0).commonAncestorContainer;
+          if (container.nodeType !== 1) container = container.parentElement;
+          if (container && container.closest && container.closest(protectedSelectors)) {
+            e.preventDefault();
+            if (e.clipboardData) {
+              e.clipboardData.setData('text/plain',
+                '© Alba Tull Photography — albatull.com — All rights reserved.');
+            }
+          }
+        }
+      });
+
+      // ── Layer 6: Transparent Shield Overlays ──────────────────
+      // Adds invisible overlays on top of images so right-click
+      // targets the overlay (transparent pixel) instead of the image
+      function addShields() {
+        var images = document.querySelectorAll('.gallery-tile, .grid-tile, .mosaic-cell, .collection-thumb, .detail-hero');
+        images.forEach(function(el) {
+          if (el.querySelector('.img-shield')) return; // already shielded
+          var shield = document.createElement('div');
+          shield.className = 'img-shield';
+          el.style.position = el.style.position || 'relative';
+          el.appendChild(shield);
+        });
+      }
+
+      // Run on load and observe for dynamic content
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', addShields);
+      } else {
+        addShields();
+      }
+
+      // Re-apply shields when DOM changes (crossfade, SPA navigation)
+      var observer = new MutationObserver(function() { addShields(); });
+      observer.observe(document.body, { childList: true, subtree: true });
+
+      // ── Layer 7: PrintScreen Flash Disruption ─────────────────
+      // Briefly blanks the page when PrintScreen is detected
+      var flashEl = null;
+      function flashProtection() {
+        if (!flashEl) {
+          flashEl = document.createElement('div');
+          flashEl.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:#000;z-index:999999;pointer-events:none;opacity:0;transition:opacity 0.05s;';
+          document.body.appendChild(flashEl);
+        }
+        flashEl.style.opacity = '1';
+        setTimeout(function() { flashEl.style.opacity = '0'; }, 200);
+      }
+
+      // ── Layer 8: Visibility Change Detection ──────────────────
+      // Detects when user switches tabs (common before screenshots)
+      // and logs it (can be extended to show warning)
+      document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+          // Page hidden — user may be using screenshot tool
+          // Could flash protection here too, but it's disruptive
+        }
+      });
+
+      // ── Layer 9: Prevent Image Selection ──────────────────────
+      // CSS is primary defense, but this catches edge cases
+      document.addEventListener('selectstart', function(e) {
+        if (e.target.tagName === 'IMG' || (e.target.closest && e.target.closest(protectedSelectors))) {
+          e.preventDefault();
+          return false;
+        }
+      });
+
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+# Netlify redirects for Astro static site
+# Astro pre-renders all pages as /page/index.html so most routes work natively.
+# These handle edge cases and clean URLs.
+
+# Ensure trailing-slash consistency (Astro default generates /page/index.html)
+/category/*    /category/:splat/index.html    200
+/photo/*       /photo/:splat/index.html       200
+
+# SPA-style fallback for any route not matched by a static file
+/*             /index.html                    200

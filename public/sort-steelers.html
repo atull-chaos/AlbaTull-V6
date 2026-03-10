@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alba Tull — Sort Steelers Photos</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #111; color: #fff; }
+
+  .header {
+    position: sticky; top: 0; z-index: 100;
+    background: #111; border-bottom: 1px solid #333;
+    padding: 20px 32px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .header h1 { font-size: 20px; font-weight: 600; }
+  .header .counts { font-size: 14px; color: #aaa; display: flex; gap: 24px; }
+  .header .counts span { display: flex; align-items: center; gap: 6px; }
+  .count-portrait { color: #60a5fa; }
+  .count-action { color: #f97316; }
+  .count-unsorted { color: #888; }
+
+  .instructions {
+    padding: 16px 32px; background: #1a1a1a; border-bottom: 1px solid #333;
+    font-size: 13px; color: #aaa; line-height: 1.6;
+  }
+  .instructions strong { color: #fff; }
+
+  .btn-run {
+    padding: 10px 24px; background: #22c55e; color: #000; font-weight: 700;
+    border: none; border-radius: 6px; cursor: pointer; font-size: 14px;
+    transition: background 0.2s;
+  }
+  .btn-run:hover { background: #16a34a; }
+  .btn-run:disabled { background: #333; color: #666; cursor: not-allowed; }
+
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 4px; padding: 16px;
+  }
+
+  .card {
+    position: relative; aspect-ratio: 1/1; overflow: hidden;
+    cursor: pointer; border: 3px solid transparent; border-radius: 4px;
+    transition: border-color 0.2s, opacity 0.2s;
+  }
+  .card img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    transition: filter 0.2s;
+  }
+  .card .label {
+    position: absolute; top: 8px; right: 8px;
+    padding: 3px 10px; border-radius: 12px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+    display: none;
+  }
+  .card .title-bar {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.8));
+    padding: 24px 8px 8px; font-size: 11px; font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  /* States */
+  .card.portrait { border-color: #60a5fa; }
+  .card.portrait .label { display: block; background: #60a5fa; color: #000; }
+  .card.action { border-color: #f97316; }
+  .card.action .label { display: block; background: #f97316; color: #000; }
+  .card:hover { opacity: 0.85; }
+
+  /* Loading */
+  .loading { text-align: center; padding: 80px 20px; color: #666; font-size: 16px; }
+  .loading .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid #333; border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Status bar */
+  .status {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: #1a1a1a; border-top: 1px solid #333;
+    padding: 12px 32px; font-size: 13px; color: #aaa;
+    display: none;
+  }
+  .status.visible { display: block; }
+  .status.success { color: #22c55e; }
+  .status.error { color: #ef4444; }
+
+  /* Password gate */
+  .gate {
+    position: fixed; inset: 0; background: #111; z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .gate-box {
+    text-align: center; max-width: 360px; padding: 40px;
+  }
+  .gate-box h2 { font-size: 18px; margin-bottom: 8px; }
+  .gate-box p { font-size: 13px; color: #888; margin-bottom: 24px; }
+  .gate-box input {
+    width: 100%; padding: 12px 16px; background: #222; border: 1px solid #444;
+    border-radius: 6px; color: #fff; font-size: 14px; text-align: center;
+    outline: none;
+  }
+  .gate-box input:focus { border-color: #60a5fa; }
+  .gate-box .gate-error { color: #ef4444; font-size: 12px; margin-top: 8px; display: none; }
+</style>
+</head>
+<body>
+
+<!-- Password Gate (same as upload page) -->
+<div class="gate" id="gate">
+  <div class="gate-box">
+    <h2>Steelers Photo Sorter</h2>
+    <p>Admin tool — enter password to continue</p>
+    <input type="password" id="gate-password" placeholder="Password" autofocus>
+    <div class="gate-error" id="gate-error">Incorrect password</div>
+  </div>
+</div>
+
+<div id="app" style="display:none;">
+  <div class="header">
+    <h1>Sort Steelers Photos</h1>
+    <div class="counts">
+      <span class="count-portrait">Portrait: <strong id="count-p">0</strong></span>
+      <span class="count-action">Action: <strong id="count-a">0</strong></span>
+      <span class="count-unsorted">Unsorted: <strong id="count-u">0</strong></span>
+    </div>
+    <button class="btn-run" id="btn-apply" disabled onclick="applyChanges()">Apply Changes</button>
+  </div>
+
+  <div class="instructions">
+    <strong>Click once</strong> = Portrait (blue) &nbsp;|&nbsp;
+    <strong>Click again</strong> = Action (orange) &nbsp;|&nbsp;
+    <strong>Click again</strong> = Reset &nbsp;|&nbsp;
+    Sort all photos, then click <strong>Apply Changes</strong> to update Sanity.
+  </div>
+
+  <div id="grid-container">
+    <div class="loading">
+      <div class="spinner"></div><br>
+      Loading Steelers photos from Sanity...
+    </div>
+  </div>
+</div>
+
+<div class="status" id="status"></div>
+
+<script>
+// ── Config ──────────────────────────────────────────────────────
+var CONFIG = {
+  projectId: 'vo1f0ucj',
+  dataset: 'production',
+  apiVersion: '2024-01-01',
+  token: 'skePaHb34ZaTMbrd8NbUMdd7XOrcee2MheG2OUrJ9VuvTsgkjNcluRz5agzruwbbYEtXXfvMgvSR34Xgz64XPMchQlhQoLMS1v9JSSGJUrmvQ380VTswdHje6yGcGtVxfWi43ralbrvAkloon9jn153nunAsAV8ZxjWMoK7asHvA8FBFpo1Z'
+};
+
+var API_BASE = 'https://' + CONFIG.projectId + '.api.sanity.io/v' + CONFIG.apiVersion;
+var QUERY_URL = API_BASE + '/data/query/' + CONFIG.dataset;
+var MUTATE_URL = API_BASE + '/data/mutate/' + CONFIG.dataset;
+var authHeader = { 'Authorization': 'Bearer ' + CONFIG.token };
+
+// ── Password Gate ──────────────────────────────────────────────
+var ACCESS_HASH = '93a2333edbe99e65960b31b0022616aeff99407fbbc03cf98ba50ffc6598bf5d';
+
+async function hashPassword(pw) {
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
+  return Array.from(new Uint8Array(buf)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+}
+
+document.getElementById('gate-password').addEventListener('keydown', async function(e) {
+  if (e.key !== 'Enter') return;
+  var hash = await hashPassword(this.value);
+  if (hash === ACCESS_HASH) {
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    sessionStorage.setItem('alba_upload_auth', 'true');
+    loadPhotos();
+  } else {
+    document.getElementById('gate-error').style.display = 'block';
+    this.value = '';
+  }
+});
+
+if (sessionStorage.getItem('alba_upload_auth') === 'true') {
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  loadPhotos();
+}
+
+// ── State ──────────────────────────────────────────────────────
+var photos = [];
+var selections = {}; // photoId -> 'portrait' | 'action' | null
+var peopleCategoryId = null;
+var steelersCategoryId = null;
+
+// ── API Helpers ────────────────────────────────────────────────
+async function sanityFetch(query) {
+  var url = QUERY_URL + '?query=' + encodeURIComponent(query);
+  var res = await fetch(url, { headers: authHeader });
+  if (!res.ok) throw new Error('Query failed: ' + res.status);
+  var data = await res.json();
+  return data.result;
+}
+
+function imageUrl(ref) {
+  if (!ref || !ref.asset || !ref.asset._ref) return '';
+  var parts = ref.asset._ref.replace('image-', '').split('-');
+  var ext = parts.pop();
+  var id = parts.join('-');
+  return 'https://cdn.sanity.io/images/' + CONFIG.projectId + '/' + CONFIG.dataset + '/' + id + '.' + ext + '?w=400&h=400&fit=crop';
+}
+
+// ── Load Photos ────────────────────────────────────────────────
+async function loadPhotos() {
+  try {
+    // Get the People parent category ID and Steelers category ID
+    var categories = await sanityFetch('*[_type == "category"] { _id, name, "slug": slug.current, isParent, "parentSlug": parentCategory->slug.current }');
+
+    peopleCategoryId = null;
+    steelersCategoryId = null;
+    categories.forEach(function(c) {
+      if (c.slug === 'people') peopleCategoryId = c._id;
+      if (c.slug === 'steelers') steelersCategoryId = c._id;
+    });
+
+    // Get all photos in Steelers category
+    photos = await sanityFetch(
+      '*[_type == "photo" && (category->slug.current == "steelers" || "steelers" in additionalCategories[]->slug.current)] | order(title asc) { _id, title, "slug": slug.current, image, category->{ _id, "slug": slug.current }, "additionalCategories": additionalCategories[]->{ _id, "slug": slug.current } }'
+    );
+
+    renderGrid();
+  } catch (err) {
+    document.getElementById('grid-container').innerHTML =
+      '<div class="loading" style="color:#ef4444;">Failed to load: ' + err.message + '</div>';
+  }
+}
+
+// ── Render ─────────────────────────────────────────────────────
+function renderGrid() {
+  var html = '<div class="grid">';
+  photos.forEach(function(p) {
+    var state = selections[p._id] || '';
+    var labelText = state === 'portrait' ? 'Portrait' : state === 'action' ? 'Action' : '';
+    html += '<div class="card ' + state + '" data-id="' + p._id + '" onclick="cycleState(\'' + p._id + '\')">';
+    html += '<img src="' + imageUrl(p.image) + '" alt="' + (p.title || '') + '" loading="lazy">';
+    html += '<div class="label">' + labelText + '</div>';
+    html += '<div class="title-bar">' + (p.title || 'Untitled') + '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+  document.getElementById('grid-container').innerHTML = html;
+  updateCounts();
+}
+
+function cycleState(id) {
+  var current = selections[id] || null;
+  if (current === null) selections[id] = 'portrait';
+  else if (current === 'portrait') selections[id] = 'action';
+  else { delete selections[id]; }
+
+  // Update just this card without re-rendering everything
+  var card = document.querySelector('[data-id="' + id + '"]');
+  if (card) {
+    var state = selections[id] || '';
+    card.className = 'card ' + state;
+    var label = card.querySelector('.label');
+    label.textContent = state === 'portrait' ? 'Portrait' : state === 'action' ? 'Action' : '';
+  }
+  updateCounts();
+}
+
+function updateCounts() {
+  var p = 0, a = 0;
+  Object.values(selections).forEach(function(v) {
+    if (v === 'portrait') p++;
+    else if (v === 'action') a++;
+  });
+  document.getElementById('count-p').textContent = p;
+  document.getElementById('count-a').textContent = a;
+  document.getElementById('count-u').textContent = photos.length - p - a;
+
+  var btn = document.getElementById('btn-apply');
+  var unsorted = photos.length - p - a;
+  var hasSelections = (p + a) > 0;
+  btn.disabled = !hasSelections;
+  if (!hasSelections) {
+    btn.textContent = 'Click photos to sort them first';
+  } else {
+    btn.textContent = 'Apply Changes (' + p + ' portraits, ' + a + ' action' + (unsorted > 0 ? ', ' + unsorted + ' unsorted stay in Steelers' : '') + ')';
+  }
+}
+
+// ── Apply Changes ──────────────────────────────────────────────
+async function applyChanges() {
+  var btn = document.getElementById('btn-apply');
+  btn.disabled = true;
+  btn.textContent = 'Working...';
+  showStatus('Creating categories and moving photos...');
+
+  try {
+    // Step 1: Create "Steelers Portraits" category under People (if it doesn't exist)
+    var existing = await sanityFetch('*[_type == "category" && slug.current == "steelers-portraits"][0] { _id }');
+    var portraitCatId;
+
+    if (existing) {
+      portraitCatId = existing._id;
+      showStatus('Steelers Portraits category already exists, using it...');
+    } else {
+      // Create the category
+      var catDoc = {
+        _id: 'category-steelers-portraits',
+        _type: 'category',
+        name: 'Steelers Portraits',
+        slug: { _type: 'slug', current: 'steelers-portraits' },
+        isParent: false,
+        parentCategory: { _type: 'reference', _ref: peopleCategoryId },
+        order: 20
+      };
+
+      var res = await fetch(MUTATE_URL, {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + CONFIG.token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mutations: [{ createOrReplace: catDoc }] })
+      });
+      if (!res.ok) throw new Error('Failed to create category: ' + res.status);
+      portraitCatId = 'category-steelers-portraits';
+      showStatus('Created Steelers Portraits category...');
+    }
+
+    // Step 2: Build mutations for portrait photos — change their primary category to steelers-portraits
+    var mutations = [];
+    var portraitIds = [];
+    var actionIds = [];
+
+    photos.forEach(function(p) {
+      var choice = selections[p._id];
+      if (choice === 'portrait') {
+        portraitIds.push(p._id);
+        // Change primary category to steelers-portraits
+        // Add steelers as additional category so they still appear under Sports too
+        var patch = {
+          id: p._id,
+          set: {
+            category: { _type: 'reference', _ref: portraitCatId }
+          }
+        };
+        // Add steelers to additionalCategories if not already there
+        var hasAdditional = p.additionalCategories && p.additionalCategories.some(function(ac) { return ac.slug === 'steelers'; });
+        if (!hasAdditional && steelersCategoryId) {
+          patch.set.additionalCategories = [{ _type: 'reference', _ref: steelersCategoryId, _key: 'steelers' }];
+        }
+        mutations.push({ patch: patch });
+      } else {
+        actionIds.push(p._id);
+      }
+    });
+
+    showStatus('Moving ' + portraitIds.length + ' photos to Steelers Portraits...');
+
+    // Send mutations in batches of 20
+    for (var i = 0; i < mutations.length; i += 20) {
+      var batch = mutations.slice(i, i + 20);
+      var res = await fetch(MUTATE_URL, {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + CONFIG.token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mutations: batch })
+      });
+      if (!res.ok) {
+        var errText = await res.text();
+        throw new Error('Mutation batch failed: ' + res.status + ' — ' + errText);
+      }
+      showStatus('Processed ' + Math.min(i + 20, mutations.length) + ' of ' + mutations.length + ' photos...');
+    }
+
+    showStatus('Done! ' + portraitIds.length + ' photos moved to Steelers Portraits, ' + actionIds.length + ' kept in Steelers (Action).', 'success');
+    btn.textContent = 'Done!';
+
+  } catch (err) {
+    showStatus('Error: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.textContent = 'Retry Apply Changes';
+  }
+}
+
+function showStatus(msg, type) {
+  var el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = 'status visible' + (type ? ' ' + type : '');
+}
+</script>
+</body>
+</html>

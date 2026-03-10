@@ -1,0 +1,148 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { fetchAllWithCache, urlFor } from '../lib/sanity.js';
+import { getCategories as getLocalCategories } from '../data/photos.js';
+
+// ── Fetch categories from Sanity → Cache → Local ────────────────
+let allCategories = [];
+
+const { categories: rawCats, source } = await fetchAllWithCache();
+
+if ((source === 'sanity' || source === 'cache') && rawCats && rawCats.length > 0) {
+  // First pass: build all categories
+  allCategories = rawCats.map(c => ({
+    name:        c.name,
+    slug:        c.slug,
+    description: c.description || '',
+    archetype:   c.archetype || '',
+    archetypeDescription: c.archetypeDescription || '',
+    count:       c.photoCount || 0,
+    isParent:    c.isParent || false,
+    parentCategory: c.parentCategory || null,
+    children:    (c.children || []).map(child => ({
+      name:  child.name,
+      slug:  child.slug,
+      count: child.photoCount || 0,
+    })),
+    photos:      (c.previewPhotos || [])
+      .filter(p => p.image)
+      .map(p => ({
+        title: p.title || 'Untitled',
+        slug:  p.slug,
+        img:   urlFor(p.image).width(400).height(400).fit('crop').quality(60).auto('format').url()
+      }))
+  }));
+
+  // Second pass: parent categories with no direct photos — pull from children
+  allCategories.forEach(cat => {
+    if (cat.isParent && cat.photos.length === 0 && cat.children.length > 0) {
+      const childSlugs = cat.children.map(ch => ch.slug);
+      const childCats = allCategories.filter(c => childSlugs.includes(c.slug));
+      const childPhotos = childCats.flatMap(c => c.photos);
+      cat.photos = childPhotos.slice(0, 12);
+    }
+  });
+} else {
+  const localCats = getLocalCategories();
+  allCategories = localCats.map(c => ({
+    name: c.name,
+    slug: c.slug,
+    description: '',
+    archetype: '',
+    archetypeDescription: '',
+    count: c.count || 0,
+    isParent: false,
+    parentCategory: null,
+    children: [],
+    photos: []
+  }));
+}
+
+// ── Build display list: parent categories and standalone only ──
+// Hide child categories from the main list (they appear under their parent)
+const displayCategories = allCategories.filter(c => !c.parentCategory);
+
+// Total artwork count
+const totalCount = displayCategories.reduce((sum, c) => {
+  if (c.isParent && c.children.length > 0) {
+    return sum + c.children.reduce((cs, child) => cs + child.count, 0);
+  }
+  return sum + c.count;
+}, 0);
+
+// Ensure even number of photos per category for clean grid
+function evenPhotos(photos) {
+  if (photos.length % 2 !== 0 && photos.length > 1) {
+    return photos.slice(0, photos.length - 1);
+  }
+  return photos;
+}
+---
+
+<BaseLayout title="Gallery — Alba Tull">
+  <div class="gallery-page">
+    <div class="gallery-header">
+      <a class="gallery-back" href="/">&larr; Home</a>
+      <h1 class="gallery-title">The Collection</h1>
+      <p class="gallery-subtitle">{totalCount} Artworks across {displayCategories.length} Collections</p>
+    </div>
+
+    <div class="gallery-sections">
+      {displayCategories.map(cat => {
+        const photoCount = cat.isParent && cat.children.length > 0
+          ? cat.children.reduce((s, ch) => s + ch.count, 0)
+          : cat.count;
+        const gridPhotos = evenPhotos(cat.photos);
+
+        return (
+          <div class="gallery-section">
+            <div class="gallery-section-header">
+              <div class="gallery-section-info">
+                {cat.archetype && (
+                  <div class="gallery-archetype">Archetype</div>
+                )}
+                <h2 class="gallery-section-name">
+                  <a href={`/category/${cat.slug}/`}>
+                    {cat.archetype || cat.name}
+                  </a>
+                  <span class="gallery-photo-count">{photoCount}</span>
+                </h2>
+                {cat.isParent && cat.children.length > 0 && (
+                  <div class="gallery-subcategories">
+                    {cat.children.map((child, i) => (
+                      <Fragment>
+                        <a href={`/category/${child.slug}/`} class="gallery-subcat-link">
+                          {child.name} ({child.count})
+                        </a>
+                        {i < cat.children.length - 1 && <span class="gallery-subcat-sep"> · </span>}
+                      </Fragment>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <p class="gallery-section-desc">
+                {cat.archetypeDescription || cat.description || `${photoCount} photographs in this collection.`}
+              </p>
+            </div>
+
+            <div class="gallery-grid">
+              {gridPhotos.map(photo => (
+                <a class="gallery-tile" href={`/photo/${photo.slug}/`}>
+                  <img src={photo.img} alt={photo.title} loading="lazy" decoding="async" />
+                  <div class="gallery-tile-title">{photo.title}</div>
+                </a>
+              ))}
+              {gridPhotos.length === 0 && (
+                <div class="gallery-empty">Photos loading from Sanity...</div>
+              )}
+            </div>
+
+            <a class="gallery-view-all" href={`/category/${cat.slug}/`}>
+              View all {photoCount} &rarr;
+            </a>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+</BaseLayout>

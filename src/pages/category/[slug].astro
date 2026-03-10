@@ -1,0 +1,182 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { fetchAllWithCache, getPhotosByCategory as getSanityPhotosByCategory, getPhotosByParentCategory as getSanityPhotosByParentCategory, urlFor } from '../../lib/sanity.js';
+import { getCategories as getLocalCategories, getPhotosByCategory as getLocalPhotosByCategory } from '../../data/photos.js';
+
+// ── Generate paths from Sanity → Cache → Local fallback ─────────
+export async function getStaticPaths() {
+  const { categories, source } = await fetchAllWithCache();
+
+  if ((source === 'sanity' || source === 'cache') && categories && categories.length > 0) {
+    return categories.map(cat => ({
+      params: { slug: cat.slug },
+      props: {
+        categoryName: cat.name,
+        source,
+        isParent: cat.isParent || false,
+        parentCategory: cat.parentCategory || null,
+        children: cat.children || [],
+      }
+    }));
+  }
+
+  // Local fallback
+  const localCats = getLocalCategories();
+  return localCats.map(cat => ({
+    params: { slug: cat.slug },
+    props: { categoryName: cat.name, source: 'local', isParent: false, parentCategory: null, children: [] }
+  }));
+}
+
+const { slug } = Astro.params;
+const { categoryName, source, isParent, parentCategory, children } = Astro.props;
+
+// ── Build sibling tabs (for subcategory navigation) ──────────────
+// If this IS a parent category: show tabs for its children
+// If this HAS a parent: show tabs for siblings (other children of same parent)
+let tabs = [];
+let parentSlug = null;
+let parentName = null;
+
+if (isParent && children.length > 0) {
+  // This is a parent — show "All" + each child as tabs
+  parentSlug = slug;
+  parentName = categoryName;
+  tabs = [
+    { name: 'All', slug: slug, active: true },
+    ...children.map(c => ({ name: c.name, slug: c.slug, active: false }))
+  ];
+} else if (parentCategory) {
+  // This is a child — find siblings from the parent's data
+  parentSlug = parentCategory.slug;
+  parentName = parentCategory.name;
+
+  // Fetch all categories to find siblings
+  const { categories: allCats } = await fetchAllWithCache();
+  const parent = allCats?.find(c => c.slug === parentSlug);
+  const siblings = parent?.children || [];
+
+  tabs = [
+    { name: 'All', slug: parentSlug, active: false },
+    ...siblings.map(c => ({ name: c.name, slug: c.slug, active: c.slug === slug }))
+  ];
+}
+
+// ── Fetch photos for this category ──────────────────────────────
+let photos = [];
+
+if (source === 'cache') {
+  try {
+    const { readCache } = await import('../../lib/sanity-cache.js');
+    const cached = readCache();
+    if (cached && cached.photos) {
+      let matchingPhotos;
+
+      if (isParent && children.length > 0) {
+        // Parent category: show photos from ALL children + photos directly in this category
+        const childSlugs = children.map(c => c.slug);
+        matchingPhotos = cached.photos.filter(p => {
+          if (!p.image) return false;
+          // Direct match on primary category
+          if (p.category?.slug === slug) return true;
+          if (childSlugs.includes(p.category?.slug)) return true;
+          // Match on additionalCategories
+          const addCats = p.additionalCategories || [];
+          if (addCats.some(ac => ac.slug === slug || childSlugs.includes(ac.slug))) return true;
+          return false;
+        });
+      } else {
+        // Leaf category or standalone: match primary + additional
+        matchingPhotos = cached.photos.filter(p => {
+          if (!p.image) return false;
+          if (p.category?.slug === slug) return true;
+          const addCats = p.additionalCategories || [];
+          if (addCats.some(ac => ac.slug === slug)) return true;
+          return false;
+        });
+      }
+
+      photos = matchingPhotos.map(p => ({
+        id:    p._id,
+        title: p.title || 'Untitled',
+        slug:  p.slug || p._id,
+        img:   urlFor(p.image).width(600).quality(65).auto('format').url(),
+        desc:  p.description || '',
+        cat:   p.category?.name || categoryName
+      }));
+    }
+  } catch (ce) {
+    console.warn('Cache read failed for category:', slug, ce.message);
+  }
+} else if (source === 'sanity') {
+  try {
+    // Parent categories need to aggregate photos from all children
+    const sanityPhotos = (isParent && children.length > 0)
+      ? await getSanityPhotosByParentCategory(slug)
+      : await getSanityPhotosByCategory(slug);
+    photos = sanityPhotos.map(p => ({
+      id:    p._id,
+      title: p.title || 'Untitled',
+      slug:  p.slug || p._id,
+      img:   p.image ? urlFor(p.image).width(600).quality(65).auto('format').url() : '',
+      desc:  p.description || '',
+      cat:   p.category?.name || categoryName
+    })).filter(p => p.img);
+  } catch (e) {
+    console.warn('Sanity photos fetch failed for category:', slug, e.message);
+  }
+}
+
+// Fallback to local
+if (photos.length === 0) {
+  photos = getLocalPhotosByCategory(slug);
+}
+
+// Display name: use parent name if this is a parent showing "All"
+const displayName = categoryName;
+---
+
+<BaseLayout title={`${displayName} — Alba Tull`} description={`Photography collection: ${displayName}`}>
+  <div class="grid-page">
+    <div class="grid-header">
+      {parentCategory ? (
+        <a class="grid-back" href={`/category/${parentSlug}/`}>&larr; Back to {parentName}</a>
+      ) : (
+        <a class="grid-back" href="/">&larr; Back to Portfolio</a>
+      )}
+      <h1 class="grid-title">{displayName}</h1>
+      <p class="grid-subtitle">{photos.length} photograph{photos.length !== 1 ? 's' : ''}</p>
+    </div>
+
+    {/* Subcategory tabs */}
+    {tabs.length > 0 && (
+      <nav class="subcategory-tabs">
+        {tabs.map(tab => (
+          <a
+            href={`/category/${tab.slug}/`}
+            class={`subcategory-tab ${tab.active ? 'active' : ''}`}
+          >
+            {tab.name}
+          </a>
+        ))}
+      </nav>
+    )}
+
+    <div class="photo-grid">
+      {photos.map(photo => (
+        <a
+          class="grid-tile"
+          href={`/photo/${photo.slug}/`}
+        >
+          <img
+            src={photo.img}
+            alt={photo.title}
+            loading="lazy"
+            decoding="async"
+          />
+          <div class="grid-tile-title">{photo.title}</div>
+        </a>
+      ))}
+    </div>
+  </div>
+</BaseLayout>
