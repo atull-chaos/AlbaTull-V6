@@ -12,10 +12,10 @@
   #gate{display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0a0a}
   #gate-inner{text-align:center}
   #gate h1{font-size:1.6rem;margin-bottom:1rem;letter-spacing:2px;color:#ccc}
-  #pw-container input{padding:12px 20px;font-size:1rem;border:1px solid #333;border-radius:8px;background:#111;color:#fff;width:260px;text-align:center;display:block;margin:0 auto}
-  #pw-container input:focus{outline:none;border-color:#4a90d9}
-  #pw-container button{margin-top:12px;padding:10px 30px;font-size:.95rem;border:none;border-radius:8px;background:#4a90d9;color:#fff;cursor:pointer;font-weight:600}
-  #pw-container button:hover{background:#5aa0e9}
+  #gate .pw-input{padding:12px 20px;font-size:1rem;border:1px solid #333;border-radius:8px;background:#111;color:#fff;width:260px;text-align:center;display:block;margin:0 auto;-webkit-text-security:disc}
+  #gate .pw-input:focus{outline:none;border-color:#4a90d9}
+  #gate .pw-btn{margin-top:12px;padding:10px 30px;font-size:.95rem;border:none;border-radius:8px;background:#4a90d9;color:#fff;cursor:pointer;font-weight:600}
+  #gate .pw-btn:hover{background:#5aa0e9}
   #gate .error{color:#e74c3c;margin-top:8px;font-size:.85rem}
 
   /* ── Main App ──────────────────────────────────── */
@@ -84,7 +84,7 @@
 </head>
 <body>
 
-<!-- Password Gate — input is created by JS so password managers can't detect it -->
+<!-- Password Gate -->
 <div id="gate">
   <div id="gate-inner">
     <h1>GALLERY ORDER</h1>
@@ -96,13 +96,13 @@
 <!-- Main App -->
 <div id="app">
   <div class="toolbar">
-    <select id="category-select" onchange="loadCategory()">
+    <select id="category-select">
       <option value="">— Select a gallery —</option>
     </select>
     <span class="count-badge" id="pin-count"><strong>0</strong>/12 pinned</span>
-    <button class="btn-apply" id="btn-apply" disabled onclick="applyOrder()">Apply Order</button>
-    <button class="btn-clear" onclick="clearPins()">Clear All</button>
-    <button class="btn-reset" onclick="loadCategory()">↻ Reload</button>
+    <button class="btn-apply" id="btn-apply" disabled>Apply Order</button>
+    <button class="btn-clear" id="btn-clear">Clear All</button>
+    <button class="btn-reset" id="btn-reset">↻ Reload</button>
   </div>
 
   <div class="status" id="status"></div>
@@ -119,38 +119,53 @@
 </div>
 
 <script>
-// ── Config ──────────────────────────────────────────
-const PROJECT_ID = 'vo1f0ucj';
-const DATASET    = 'production';
-const API_VER    = '2024-01-01';
-const WRITE_TOKEN = 'skePaHb34ZaTMbrd8NbUMdd7XOrcee2MheG2OUrJ9VuvTsgkjNcluRz5agzruwbbYEtXXfvMgvSR34Xgz64XPMchQlhQoLMS1v9JSSGJUrmvQ380VTswdHje6yGcGtVxfWi43ralbrvAkloon9jn153nunAsAV8ZxjWMoK7asHvA8FBFpo1Z';
-const READ_TOKEN  = 'sk2U3t7Ey5IgT5S8FZGwfkqY6TBManFJPFPWV1Zz800IgXQJZOzITVNwZ7egyDqrJcMOg2rcjaVdxezx9FcwlOYidKsAnkqw3XtI3hu6MiAyInI6RGkuipfP8kRV4eJs2gNZsDreaDHAi1soShcqpWAMoS1g5pRLHuDnjKs6KCZdSdlM7e5i';
-const MAX_PINS = 12;
+/* ================================================================
+   Gallery Order Manager — Alba Tull
+   Clean rewrite — March 2026
+   ================================================================ */
 
-const SANITY_API = `https://${PROJECT_ID}.api.sanity.io/v${API_VER}/data`;
+// ── Config ──────────────────────────────────────────
+const CONFIG = {
+  projectId:  'vo1f0ucj',
+  dataset:    'production',
+  apiVersion: '2024-01-01',
+  writeToken: 'skePaHb34ZaTMbrd8NbUMdd7XOrcee2MheG2OUrJ9VuvTsgkjNcluRz5agzruwbbYEtXXfvMgvSR34Xgz64XPMchQlhQoLMS1v9JSSGJUrmvQ380VTswdHje6yGcGtVxfWi43ralbrvAkloon9jn153nunAsAV8ZxjWMoK7asHvA8FBFpo1Z',
+  readToken:  'sk2U3t7Ey5IgT5S8FZGwfkqY6TBManFJPFPWV1Zz800IgXQJZOzITVNwZ7egyDqrJcMOg2rcjaVdxezx9FcwlOYidKsAnkqw3XtI3hu6MiAyInI6RGkuipfP8kRV4eJs2gNZsDreaDHAi1soShcqpWAMoS1g5pRLHuDnjKs6KCZdSdlM7e5i',
+  maxPins:    12,
+  pwHash:     '93a2333edbe99e65960b31b0022616aeff99407fbbc03cf98ba50ffc6598bf5d'
+};
+
+const SANITY_BASE = `https://${CONFIG.projectId}.api.sanity.io/v${CONFIG.apiVersion}/data`;
 
 // ── State ───────────────────────────────────────────
-let allPhotos = [];      // photos for current category
-let pinnedIds = [];      // ordered array of photo _ids (max 12)
-let categories = [];     // all categories
-let currentCatSlug = '';
+let allPhotos = [];
+let pinnedIds = [];
+let categories = [];
 
-// ── Password ────────────────────────────────────────
-// Input is created dynamically via JS (not in HTML) so password managers
-// never see it during their initial DOM scan. No <form> wrapper either.
-setTimeout(() => {
-  const container = document.getElementById('pw-container');
+// ── DOM refs ────────────────────────────────────────
+const $ = (id) => document.getElementById(id);
+
+// ── Password Gate ───────────────────────────────────
+// Build the password input dynamically after 300ms so password
+// managers never see a <form> or <input> during initial DOM scan.
+window.addEventListener('DOMContentLoaded', () => {
+  setTimeout(buildPasswordGate, 300);
+});
+
+function buildPasswordGate() {
+  const container = $('pw-container');
 
   const inp = document.createElement('input');
   inp.type = 'text';
+  inp.className = 'pw-input';
   inp.placeholder = 'Enter password';
-  inp.style.cssText = '-webkit-text-security:disc';
   inp.autocomplete = 'off';
+  inp.name = 'gk_' + Date.now();
   inp.setAttribute('data-1p-ignore', 'true');
   inp.setAttribute('data-lpignore', 'true');
-  inp.name = 'gallery_key_' + Date.now();  // random name each load
 
   const btn = document.createElement('button');
+  btn.className = 'pw-btn';
   btn.textContent = 'Enter';
   btn.type = 'button';
 
@@ -159,165 +174,204 @@ setTimeout(() => {
   inp.focus();
 
   inp.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); checkPassword(); }
+    if (e.key === 'Enter') { e.preventDefault(); tryPassword(inp); }
   });
-  btn.addEventListener('click', () => checkPassword());
-}, 300);
+  btn.addEventListener('click', () => tryPassword(inp));
+}
 
-async function checkPassword() {
-  const inp = document.querySelector('#pw-container input');
-  if (!inp) return;
+async function tryPassword(inp) {
   const pw = inp.value.trim();
-  if (!pw) { document.getElementById('pw-error').textContent = 'Please enter a password'; return; }
-  const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw))))
-    .map(b => b.toString(16).padStart(2,'0')).join('');
-  if (hash === '93a2333edbe99e65960b31b0022616aeff99407fbbc03cf98ba50ffc6598bf5d') {
-    document.getElementById('gate').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
-    loadCategories();
+  if (!pw) { $('pw-error').textContent = 'Please enter a password'; return; }
+
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
+  const hash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+
+  if (hash === CONFIG.pwHash) {
+    $('gate').style.display = 'none';
+    $('app').style.display = 'block';
+    initApp();
   } else {
-    document.getElementById('pw-error').textContent = 'Wrong password';
+    $('pw-error').textContent = 'Wrong password';
     inp.value = '';
     inp.focus();
   }
 }
 
+// ── App Init ────────────────────────────────────────
+function initApp() {
+  // Wire up event listeners
+  $('category-select').addEventListener('change', loadCategory);
+  $('btn-apply').addEventListener('click', applyOrder);
+  $('btn-clear').addEventListener('click', clearPins);
+  $('btn-reset').addEventListener('click', loadCategory);
+
+  loadCategories();
+}
+
 // ── Sanity Helpers ──────────────────────────────────
-function sanityImageUrl(ref, w=200) {
+function sanityImageUrl(ref, w) {
+  w = w || 200;
   if (!ref || !ref.asset) return '';
-  const id = ref.asset._ref || ref.asset._id || '';
-  const m = id.match(/^image-(.+)-(\d+x\d+)-(\w+)$/);
+  var id = ref.asset._ref || ref.asset._id || '';
+  var m = id.match(/^image-(.+)-(\d+x\d+)-(\w+)$/);
   if (!m) return '';
-  return `https://cdn.sanity.io/images/${PROJECT_ID}/${DATASET}/${m[1]}-${m[2]}.${m[3]}?w=${w}&h=${w}&fit=crop&q=55`;
+  return 'https://cdn.sanity.io/images/' + CONFIG.projectId + '/' + CONFIG.dataset + '/' + m[1] + '-' + m[2] + '.' + m[3] + '?w=' + w + '&h=' + w + '&fit=crop&q=55';
 }
 
 async function groq(query) {
-  const url = `${SANITY_API}/query/${DATASET}?query=${encodeURIComponent(query)}`;
-  const r = await fetch(url, { headers: { Authorization: `Bearer ${READ_TOKEN}` }});
-  const j = await r.json();
-  return j.result;
+  var url = SANITY_BASE + '/query/' + CONFIG.dataset + '?query=' + encodeURIComponent(query);
+  console.log('[groq] Fetching:', url.substring(0, 120) + '...');
+  try {
+    var resp = await fetch(url, {
+      headers: { 'Authorization': 'Bearer ' + CONFIG.readToken }
+    });
+    console.log('[groq] Response status:', resp.status);
+    if (!resp.ok) {
+      var errText = await resp.text();
+      console.error('[groq] Error body:', errText);
+      throw new Error('Sanity API returned ' + resp.status + ': ' + errText);
+    }
+    var data = await resp.json();
+    console.log('[groq] Result count:', data.result ? data.result.length : 'N/A');
+    return data.result;
+  } catch (err) {
+    console.error('[groq] Fetch failed:', err);
+    showStatus('API Error: ' + err.message, 'error');
+    throw err;
+  }
 }
 
 async function mutate(mutations) {
-  const r = await fetch(`${SANITY_API}/mutate/${DATASET}`, {
+  var resp = await fetch(SANITY_BASE + '/mutate/' + CONFIG.dataset, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${WRITE_TOKEN}`
+      'Authorization': 'Bearer ' + CONFIG.writeToken
     },
-    body: JSON.stringify({ mutations })
+    body: JSON.stringify({ mutations: mutations })
   });
-  return r.json();
+  return resp.json();
 }
 
 // ── Load Categories ─────────────────────────────────
 async function loadCategories() {
   showStatus('Loading categories…', 'info');
-  categories = await groq(`
-    *[_type == "category"] | order(order asc, name asc) {
-      _id, name, "slug": slug.current,
-      "isParent": coalesce(isParent, false),
-      "parentCategory": parentCategory->{name, "slug": slug.current},
-      "children": *[_type == "category" && parentCategory._ref == ^._id] | order(order asc, name asc) {
-        _id, name, "slug": slug.current
-      },
-      "photoCount": count(*[_type == "photo" && (category._ref == ^._id || ^._id in additionalCategories[]._ref)])
-    }
-  `);
 
-  const sel = document.getElementById('category-select');
-  sel.innerHTML = '<option value="">— Select a gallery —</option>';
+  try {
+    categories = await groq(
+      '*[_type == "category"] | order(order asc, name asc) {' +
+      '  _id, name, "slug": slug.current,' +
+      '  "isParent": coalesce(isParent, false),' +
+      '  "parentCategory": parentCategory->{name, "slug": slug.current},' +
+      '  "children": *[_type == "category" && parentCategory._ref == ^._id] | order(order asc, name asc) {' +
+      '    _id, name, "slug": slug.current' +
+      '  },' +
+      '  "photoCount": count(*[_type == "photo" && (category._ref == ^._id || ^._id in additionalCategories[]._ref)])' +
+      '}'
+    );
 
-  // Group by parent/child
-  const parents = categories.filter(c => c.isParent);
-  const standalones = categories.filter(c => !c.isParent && !c.parentCategory);
-  const children = categories.filter(c => c.parentCategory);
+    console.log('[loadCategories] Got', categories.length, 'categories');
 
-  // Add parents with their children as optgroups
-  parents.forEach(p => {
-    const group = document.createElement('optgroup');
-    group.label = `${p.name} (${p.photoCount})`;
-    // Parent "All" option
-    const opt = document.createElement('option');
-    opt.value = `parent:${p.slug}`;
-    opt.textContent = `${p.name} — All (${p.photoCount})`;
-    group.appendChild(opt);
-    // Children
-    const kids = children.filter(c => c.parentCategory.slug === p.slug);
-    kids.forEach(k => {
-      const ko = document.createElement('option');
-      ko.value = k.slug;
-      ko.textContent = `  ${k.name} (${k.photoCount})`;
-      group.appendChild(ko);
-    });
-    sel.appendChild(group);
-  });
+    var sel = $('category-select');
+    sel.innerHTML = '<option value="">— Select a gallery —</option>';
 
-  // Standalones
-  if (standalones.length > 0) {
-    const group = document.createElement('optgroup');
-    group.label = 'Other';
-    standalones.forEach(s => {
-      const opt = document.createElement('option');
-      opt.value = s.slug;
-      opt.textContent = `${s.name} (${s.photoCount})`;
+    var parents = categories.filter(function(c) { return c.isParent; });
+    var standalones = categories.filter(function(c) { return !c.isParent && !c.parentCategory; });
+    var children = categories.filter(function(c) { return c.parentCategory; });
+
+    // Parents with their children as optgroups
+    parents.forEach(function(p) {
+      var group = document.createElement('optgroup');
+      group.label = p.name + ' (' + p.photoCount + ')';
+
+      var opt = document.createElement('option');
+      opt.value = 'parent:' + p.slug;
+      opt.textContent = p.name + ' — All (' + p.photoCount + ')';
       group.appendChild(opt);
-    });
-    sel.appendChild(group);
-  }
 
-  hideStatus();
+      var kids = children.filter(function(c) { return c.parentCategory.slug === p.slug; });
+      kids.forEach(function(k) {
+        var ko = document.createElement('option');
+        ko.value = k.slug;
+        ko.textContent = '  ' + k.name + ' (' + (k.photoCount || 0) + ')';
+        group.appendChild(ko);
+      });
+
+      sel.appendChild(group);
+    });
+
+    // Standalone categories
+    if (standalones.length > 0) {
+      var group = document.createElement('optgroup');
+      group.label = 'Other';
+      standalones.forEach(function(s) {
+        var opt = document.createElement('option');
+        opt.value = s.slug;
+        opt.textContent = s.name + ' (' + s.photoCount + ')';
+        group.appendChild(opt);
+      });
+      sel.appendChild(group);
+    }
+
+    hideStatus();
+
+  } catch (err) {
+    showStatus('Failed to load categories: ' + err.message, 'error');
+    console.error('[loadCategories] Error:', err);
+  }
 }
 
 // ── Load Photos for Category ────────────────────────
 async function loadCategory() {
-  const val = document.getElementById('category-select').value;
+  var val = $('category-select').value;
   if (!val) return;
 
-  document.getElementById('loading').style.display = 'block';
-  document.getElementById('photo-grid').innerHTML = '';
-  document.getElementById('pinned-grid').innerHTML = '';
+  $('loading').style.display = 'block';
+  $('photo-grid').innerHTML = '';
+  $('pinned-grid').innerHTML = '';
   pinnedIds = [];
   updatePinCount();
 
-  let query;
-  if (val.startsWith('parent:')) {
-    const parentSlug = val.replace('parent:', '');
-    currentCatSlug = parentSlug;
-    query = `
-      *[_type == "photo" && (
-        category->parentCategory->slug.current == "${parentSlug}" ||
-        category->slug.current == "${parentSlug}" ||
-        "${parentSlug}" in additionalCategories[]->parentCategory->slug.current
-      )] | order(coalesce(displayOrder, 9999) asc, title asc) {
-        _id, title, "slug": slug.current, image, displayOrder,
-        category->{name, "slug": slug.current}
-      }
-    `;
+  var query;
+  if (val.indexOf('parent:') === 0) {
+    var parentSlug = val.replace('parent:', '');
+    query =
+      '*[_type == "photo" && (' +
+      '  category->parentCategory->slug.current == "' + parentSlug + '" ||' +
+      '  category->slug.current == "' + parentSlug + '" ||' +
+      '  "' + parentSlug + '" in additionalCategories[]->parentCategory->slug.current' +
+      ')] | order(coalesce(displayOrder, 9999) asc, title asc) {' +
+      '  _id, title, "slug": slug.current, image, displayOrder,' +
+      '  category->{name, "slug": slug.current}' +
+      '}';
   } else {
-    currentCatSlug = val;
-    query = `
-      *[_type == "photo" && (
-        category->slug.current == "${val}" ||
-        "${val}" in additionalCategories[]->slug.current
-      )] | order(coalesce(displayOrder, 9999) asc, title asc) {
-        _id, title, "slug": slug.current, image, displayOrder,
-        category->{name, "slug": slug.current}
-      }
-    `;
+    query =
+      '*[_type == "photo" && (' +
+      '  category->slug.current == "' + val + '" ||' +
+      '  "' + val + '" in additionalCategories[]->slug.current' +
+      ')] | order(coalesce(displayOrder, 9999) asc, title asc) {' +
+      '  _id, title, "slug": slug.current, image, displayOrder,' +
+      '  category->{name, "slug": slug.current}' +
+      '}';
   }
 
-  allPhotos = await groq(query);
-  document.getElementById('loading').style.display = 'none';
+  try {
+    allPhotos = await groq(query);
+    $('loading').style.display = 'none';
 
-  // Pre-populate pinned list from existing displayOrder values
-  const ordered = allPhotos
-    .filter(p => p.displayOrder && p.displayOrder < 9999)
-    .sort((a,b) => a.displayOrder - b.displayOrder);
-  pinnedIds = ordered.map(p => p._id);
+    // Pre-populate pinned list from existing displayOrder values
+    var ordered = allPhotos
+      .filter(function(p) { return p.displayOrder && p.displayOrder < 9999; })
+      .sort(function(a, b) { return a.displayOrder - b.displayOrder; });
+    pinnedIds = ordered.map(function(p) { return p._id; });
 
-  document.getElementById('available-label').textContent = `Available Photos (${allPhotos.length} total)`;
-  render();
+    $('available-label').textContent = 'Available Photos (' + allPhotos.length + ' total)';
+    render();
+
+  } catch (err) {
+    $('loading').style.display = 'none';
+    showStatus('Failed to load photos: ' + err.message, 'error');
+  }
 }
 
 // ── Render ──────────────────────────────────────────
@@ -328,27 +382,28 @@ function render() {
 }
 
 function renderPinnedGrid() {
-  const grid = document.getElementById('pinned-grid');
+  var grid = $('pinned-grid');
   grid.innerHTML = '';
 
-  for (let i = 0; i < MAX_PINS; i++) {
-    const slot = document.createElement('div');
+  for (var i = 0; i < CONFIG.maxPins; i++) {
+    var slot = document.createElement('div');
     slot.className = 'pinned-slot';
 
     if (i < pinnedIds.length) {
-      const photo = allPhotos.find(p => p._id === pinnedIds[i]);
+      var photo = allPhotos.find(function(p) { return p._id === pinnedIds[i]; });
       if (photo) {
         slot.className += ' filled';
-        slot.innerHTML = `
-          <span class="slot-num">${i+1}</span>
-          <img src="${sanityImageUrl(photo.image)}" alt="${photo.title}">
-          <div class="slot-title">${photo.title}</div>
-        `;
-        slot.onclick = () => removePin(i);
+        slot.innerHTML =
+          '<span class="slot-num">' + (i+1) + '</span>' +
+          '<img src="' + sanityImageUrl(photo.image) + '" alt="' + photo.title + '">' +
+          '<div class="slot-title">' + photo.title + '</div>';
+        (function(idx) {
+          slot.onclick = function() { removePin(idx); };
+        })(i);
       }
     } else {
       slot.className += ' empty';
-      slot.innerHTML = `<span class="slot-num" style="background:none;color:#333;font-size:1.5rem">${i+1}</span>`;
+      slot.innerHTML = '<span class="slot-num" style="background:none;color:#333;font-size:1.5rem">' + (i+1) + '</span>';
     }
 
     grid.appendChild(slot);
@@ -356,26 +411,27 @@ function renderPinnedGrid() {
 }
 
 function renderPhotoGrid() {
-  const grid = document.getElementById('photo-grid');
+  var grid = $('photo-grid');
   grid.innerHTML = '';
 
-  allPhotos.forEach(photo => {
-    const card = document.createElement('div');
+  allPhotos.forEach(function(photo) {
+    var card = document.createElement('div');
     card.className = 'photo-card';
 
-    const pinIndex = pinnedIds.indexOf(photo._id);
+    var pinIndex = pinnedIds.indexOf(photo._id);
     if (pinIndex >= 0) {
       card.className += ' is-pinned';
       card.setAttribute('data-pin-num', pinIndex + 1);
     }
 
-    card.innerHTML = `
-      <img src="${sanityImageUrl(photo.image)}" alt="${photo.title}" loading="lazy">
-      <div class="card-title">${photo.title}</div>
-    `;
+    card.innerHTML =
+      '<img src="' + sanityImageUrl(photo.image) + '" alt="' + photo.title + '" loading="lazy">' +
+      '<div class="card-title">' + photo.title + '</div>';
 
     if (pinIndex < 0) {
-      card.onclick = () => addPin(photo._id);
+      (function(id) {
+        card.onclick = function() { addPin(id); };
+      })(photo._id);
     }
 
     grid.appendChild(card);
@@ -384,88 +440,79 @@ function renderPhotoGrid() {
 
 // ── Pin/Unpin Actions ───────────────────────────────
 function addPin(photoId) {
-  if (pinnedIds.length >= MAX_PINS) {
-    showStatus(`Already at ${MAX_PINS} pins — remove one first`, 'error');
+  if (pinnedIds.length >= CONFIG.maxPins) {
+    showStatus('Already at ' + CONFIG.maxPins + ' pins — remove one first', 'error');
     setTimeout(hideStatus, 2000);
     return;
   }
-  if (!pinnedIds.includes(photoId)) {
+  if (pinnedIds.indexOf(photoId) === -1) {
     pinnedIds.push(photoId);
     render();
-    enableApply();
+    $('btn-apply').disabled = false;
   }
 }
 
 function removePin(index) {
   pinnedIds.splice(index, 1);
   render();
-  enableApply();
+  $('btn-apply').disabled = false;
 }
 
 function clearPins() {
   pinnedIds = [];
   render();
-  enableApply();
-}
-
-function enableApply() {
-  document.getElementById('btn-apply').disabled = false;
+  $('btn-apply').disabled = false;
 }
 
 function updatePinCount() {
-  document.getElementById('pin-count').innerHTML = `<strong>${pinnedIds.length}</strong>/${MAX_PINS} pinned`;
+  $('pin-count').innerHTML = '<strong>' + pinnedIds.length + '</strong>/' + CONFIG.maxPins + ' pinned';
 }
 
 // ── Apply Order to Sanity ───────────────────────────
 async function applyOrder() {
-  const btn = document.getElementById('btn-apply');
+  var btn = $('btn-apply');
   btn.disabled = true;
   btn.textContent = 'Saving…';
   showStatus('Saving display order to Sanity…', 'info');
 
   try {
-    const mutations = [];
+    var mutations = [];
 
-    // 1. Clear displayOrder from ALL photos in this category that currently have one
-    const photosWithOrder = allPhotos.filter(p => p.displayOrder && p.displayOrder < 9999);
-    photosWithOrder.forEach(p => {
-      if (!pinnedIds.includes(p._id)) {
+    // Clear displayOrder from photos that had one but are no longer pinned
+    allPhotos.forEach(function(p) {
+      if (p.displayOrder && p.displayOrder < 9999 && pinnedIds.indexOf(p._id) === -1) {
         mutations.push({
-          patch: {
-            id: p._id,
-            unset: ['displayOrder']
-          }
+          patch: { id: p._id, unset: ['displayOrder'] }
         });
       }
     });
 
-    // 2. Set displayOrder on pinned photos (1-indexed)
-    pinnedIds.forEach((id, i) => {
+    // Set displayOrder on pinned photos (1-indexed)
+    pinnedIds.forEach(function(id, i) {
       mutations.push({
-        patch: {
-          id: id,
-          set: { displayOrder: i + 1 }
-        }
+        patch: { id: id, set: { displayOrder: i + 1 } }
       });
     });
 
     if (mutations.length > 0) {
       // Batch in groups of 50
-      for (let i = 0; i < mutations.length; i += 50) {
-        const batch = mutations.slice(i, i + 50);
-        const result = await mutate(batch);
-        if (result.error) throw new Error(result.error.description || 'Mutation failed');
+      for (var i = 0; i < mutations.length; i += 50) {
+        var batch = mutations.slice(i, i + 50);
+        var result = await mutate(batch);
+        if (result.error) {
+          throw new Error(result.error.description || 'Mutation failed');
+        }
       }
     }
 
-    showStatus(`✓ Saved! ${pinnedIds.length} photos pinned to top of gallery. Rebuild site to see changes.`, 'success');
+    showStatus('Saved! ' + pinnedIds.length + ' photos pinned to top. Rebuild site to see changes.', 'success');
     btn.textContent = 'Apply Order';
 
     // Reload to confirm
     await loadCategory();
 
   } catch (err) {
-    showStatus(`Error: ${err.message}`, 'error');
+    showStatus('Error: ' + err.message, 'error');
     btn.disabled = false;
     btn.textContent = 'Apply Order';
   }
@@ -473,12 +520,13 @@ async function applyOrder() {
 
 // ── Status Helpers ──────────────────────────────────
 function showStatus(msg, type) {
-  const el = document.getElementById('status');
+  var el = $('status');
   el.textContent = msg;
-  el.className = `status ${type}`;
+  el.className = 'status ' + type;
 }
+
 function hideStatus() {
-  document.getElementById('status').className = 'status';
+  $('status').className = 'status';
 }
 </script>
 </body>
