@@ -52,7 +52,7 @@ const CONTINENTS = [
   { name: 'South America',  slug: 'south-america',  order: 20, oldSlugs: [] },
   { name: 'Europe',         slug: 'europe',          order: 30, oldSlugs: ['amsterdam', 'france', 'greece', 'portugal'] },
   { name: 'Asia',           slug: 'asia',            order: 40, oldSlugs: ['japan', 'china'] },
-  { name: 'Africa',         slug: 'africa-continent',order: 50, oldSlugs: ['africa'] },
+  { name: 'Africa',         slug: 'africa-continent',order: 50, oldSlugs: ['africa', 'africa-wildlife'] },
   { name: 'Oceania',        slug: 'oceania',         order: 60, oldSlugs: ['bora-bora'] },
   { name: 'Antarctica',     slug: 'antarctica',      order: 70, oldSlugs: [] },
 ];
@@ -70,17 +70,16 @@ async function run() {
   `);
   console.log(`  Found ${allCats.length} existing categories\n`);
 
-  // Build a slug→ID map for all categories under Places
+  // Build a slug→ID map for all categories we might need to migrate from
+  // Includes Places children AND standalone categories referenced in oldSlugs
+  const allOldSlugs = CONTINENTS.flatMap(c => c.oldSlugs);
   const placeCatMap = {};
   for (const c of allCats) {
-    if (c.parentSlug === 'places' || c.slug === 'places') {
+    if (c.parentSlug === 'places' || c.slug === 'places' || allOldSlugs.includes(c.slug)) {
       placeCatMap[c.slug] = c._id;
     }
   }
-  // Also check for China (may be standalone or not exist)
-  const china = allCats.find(c => c.slug === 'china');
-  if (china) placeCatMap['china'] = china._id;
-  console.log('  Places categories found:', Object.keys(placeCatMap).join(', '));
+  console.log('  Source categories found:', Object.keys(placeCatMap).join(', '));
 
   // ── Step 1: Create continent categories ──────────────────────
   console.log('\n  STEP 1: Creating continent categories...\n');
