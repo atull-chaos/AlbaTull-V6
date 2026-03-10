@@ -31,16 +31,20 @@ if ((source === 'sanity' || source === 'cache') && rawCats && rawCats.length > 0
       .map(p => ({
         title: p.title || 'Untitled',
         slug:  p.slug,
+        displayOrder: p.displayOrder || 9999,
         img:   urlFor(p.image).width(400).height(400).fit('crop').quality(60).auto('format').url()
       }))
   }));
 
-  // Parent categories with no direct photos — pull from children
+  // Parent categories with no direct photos — pull from children, sorted by displayOrder
   allCategories.forEach(cat => {
     if (cat.isParent && cat.photos.length === 0 && cat.children.length > 0) {
       const childSlugs = cat.children.map(ch => ch.slug);
       const childCats = allCategories.filter(c => childSlugs.includes(c.slug));
-      cat.photos = childCats.flatMap(c => c.photos).slice(0, 12);
+      // Merge all child photos and sort by displayOrder so pinned photos come first
+      const allChildPhotos = childCats.flatMap(c => c.photos);
+      allChildPhotos.sort((a, b) => (a.displayOrder || 9999) - (b.displayOrder || 9999));
+      cat.photos = allChildPhotos.slice(0, 12);
     }
   });
 } else {

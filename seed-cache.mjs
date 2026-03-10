@@ -27,12 +27,12 @@ console.log(`  Project: ${projectId} / ${dataset}`);
 console.log(`  Read:    ${readToken ? readToken.slice(0, 8) + '...' : 'MISSING'}`);
 console.log(`  Write:   ${writeToken ? writeToken.slice(0, 8) + '...' : 'MISSING (auto-order disabled)'}\n`);
 
-// Read client (for fetching)
+// Read client (for fetching) — useCdn: false ensures fresh data after gallery-order changes
 const readClient = createClient({
   projectId, dataset,
   apiVersion: '2024-01-01',
   token: readToken,
-  useCdn: true,
+  useCdn: false,
   timeout: 30000,
 });
 
