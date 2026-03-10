@@ -1,10 +1,13 @@
 ---
+/**
+ * Live / Motion Page — Alba Tull V6A
+ *
+ * 8 video flip cards. Both faces show the same video (back offset a few seconds).
+ * Scroll flips cards at center, hover/click toggles the flip.
+ * Placeholder Pexels videos — user will replace with own footage.
+ */
 import BaseLayout from '../layouts/BaseLayout.astro';
 
-// Placeholder clips from Pexels (free stock, royalty-free).
-// SAME video on both front & back, with the back offset a few seconds.
-// poster = reliable Pexels image (loads instantly, prevents black cards).
-// User will replace with their own footage.
 const videos = [
   {
     title: 'Botanical',
@@ -76,31 +79,15 @@ const videos = [
       {videos.map((v, i) => (
         <div class="flip-card" data-index={i} data-offset={v.offset}>
           <div class="flip-card-inner">
-            <!-- Front: video from 0:00 (poster shows until video loads) -->
             <div class="flip-card-front">
-              <video
-                src={v.video}
-                poster={v.poster}
-                muted
-                loop
-                playsinline
-                preload="auto"
-              ></video>
+              <video src={v.video} poster={v.poster} muted loop playsinline preload="auto"></video>
               <div class="flip-card-label">
                 <h2>{v.title}</h2>
                 <span>{v.subtitle}</span>
               </div>
             </div>
-            <!-- Back: SAME video, offset a few seconds -->
             <div class="flip-card-back">
-              <video
-                src={v.video}
-                poster={v.poster}
-                muted
-                loop
-                playsinline
-                preload="auto"
-              ></video>
+              <video src={v.video} poster={v.poster} muted loop playsinline preload="auto"></video>
               <div class="flip-card-label">
                 <h2>{v.title}</h2>
                 <span>{v.subtitle}</span>
@@ -113,15 +100,10 @@ const videos = [
   </div>
 
   <script>
-    // === Flip Card Controller — Always in Motion ===
-    // Both faces show the SAME video (back offset a few seconds).
-    // Scroll flips cards once as they reach center.
-    // Hover/click TOGGLES the flip (front→back or back→front).
-    // poster attribute ensures cards never show black.
-
+    // Flip Card Controller — scroll flips at center, hover/click toggles
     const cards = document.querySelectorAll('.flip-card');
 
-    // ── Set back-video time offset once metadata loads ──────────────
+    // Set back-video time offset
     cards.forEach(card => {
       const backVideo = card.querySelector('.flip-card-back video');
       const offset = parseInt(card.dataset.offset) || 4;
@@ -132,7 +114,7 @@ const videos = [
       }
     });
 
-    // ── Viewport visibility — play/pause both videos ───────────────
+    // Viewport visibility — play/pause both videos
     const viewObserver = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         const card = entry.target;
@@ -141,7 +123,6 @@ const videos = [
 
         if (entry.isIntersecting) {
           card.dataset.inView = 'true';
-          // Play BOTH so back is already rolling when flip happens
           if (frontVideo) frontVideo.play().catch(() => {});
           if (backVideo) backVideo.play().catch(() => {});
         } else {
@@ -152,18 +133,13 @@ const videos = [
           card.dataset.scrollFlipped = '';
         }
       });
-    }, {
-      threshold: [0, 0.1],
-      rootMargin: '100px 0px'
-    });
+    }, { threshold: [0, 0.1], rootMargin: '100px 0px' });
 
-    // ── Scroll flip: flip once when card reaches center ─────────────
-    // Sets a baseline state. Hover/click toggle from this state.
+    // Scroll flip: flip when card reaches center
     const flipObserver = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         const card = entry.target;
         if (entry.isIntersecting && entry.intersectionRatio >= 0.35) {
-          // Only auto-flip on scroll if user hasn't manually toggled
           if (card.dataset.userToggled !== 'true') {
             card.classList.add('is-flipped');
             card.dataset.scrollFlipped = 'true';
@@ -176,36 +152,22 @@ const videos = [
           }
         }
       });
-    }, {
-      threshold: [0, 0.15, 0.35, 0.6],
-      rootMargin: '-10% 0px -10% 0px'
-    });
+    }, { threshold: [0, 0.15, 0.35, 0.6], rootMargin: '-10% 0px -10% 0px' });
 
-    // ── Toggle flip function ────────────────────────────────────────
     function toggleFlip(card) {
       card.dataset.userToggled = 'true';
       card.classList.toggle('is-flipped');
     }
 
-    // ── Setup each card ─────────────────────────────────────────────
     cards.forEach(card => {
       viewObserver.observe(card);
       flipObserver.observe(card);
 
-      // Click toggles the flip (works on mobile too)
-      card.addEventListener('click', () => {
-        toggleFlip(card);
-      });
+      card.addEventListener('click', () => toggleFlip(card));
+      card.addEventListener('mouseenter', () => toggleFlip(card));
 
-      // Hover toggles the flip
-      card.addEventListener('mouseenter', () => {
-        toggleFlip(card);
-      });
-
-      // On mouse leave, restore to scroll-determined state
       card.addEventListener('mouseleave', () => {
         card.dataset.userToggled = '';
-        // If scroll says it should be flipped (in center), flip it back
         const rect = card.getBoundingClientRect();
         const vh = window.innerHeight;
         const centerY = rect.top + rect.height / 2;

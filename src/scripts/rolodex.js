@@ -1,36 +1,36 @@
 /**
- * Rolodex — Per-card perspective + two-sided faces
+ * Rolodex — Alba Tull V6A
  *
- * ★ FIREFOX FIX: No parent perspective or preserve-3d needed.
+ * Per-card perspective + two-sided faces creating a 3D arc of photos.
+ *
+ * FIREFOX FIX: No parent perspective or preserve-3d needed.
  *   Each card uses perspective() in its own transform function.
- *   This completely avoids Firefox's bug where overflow ancestors
- *   flatten the preserve-3d chain.
+ *   This avoids Firefox's bug where overflow ancestors flatten
+ *   the preserve-3d chain.
  *
- * ★ FLICKER FIX: Two-sided cards with backface-visibility: hidden
+ * FLICKER FIX: Two-sided cards with backface-visibility: hidden
  *   on both faces. Eliminates z-fighting at the 90° flip point.
- *   Front face = normal image. Back face = rotateX(180deg) image
- *   (appears upside-down, like a real flipped sheet of paper).
+ *   Front face = normal image. Back face = rotateX(180deg) image.
  *
- * ★ ROTATION MODEL (0° at center → 180° at edges):
+ * ROTATION MODEL (0° at center → 180° at edges):
  *   Cards far from center show their BACKSIDE (upside-down image).
- *   As a card scrolls toward center, it flips THROUGH 90° and
+ *   As a card scrolls toward center, it flips through 90° and
  *   arrives at 0° showing the FRONT.
  *
- *   SIGN INVERTED so the flip goes TOWARD the viewer:
+ *   Sign inverted so the flip goes TOWARD the viewer:
  *   - Cards above center: negative rotateX → top tilts toward you
  *   - Cards below center: positive rotateX → bottom tilts toward you
- *   This makes the backface-to-front flip VISIBLE from the viewing angle.
  */
 
-// --- TUNING CONSTANTS ---
-const RADIUS          = 350;   // px — arc radius for Y positioning
-const CARD_GAP_DEG    = 22;    // degrees between card centers on arc
-const FLIP_MAX        = 180;   // degrees — full 180° for flat backface
-const FLIP_SPEED      = 0.55;  // curve speed: 90° at ~1.3 cards from center
-const VISIBLE_CARDS   = 11;
-const HALF_VISIBLE    = Math.floor(VISIBLE_CARDS / 2);
-const SCROLL_SPEED    = 0.5;   // wheel delta multiplier (lower = smoother)
-const PERSPECTIVE     = 900;   // px — lower = more dramatic 3D
+// ── Tuning constants ─────────────────────────────────────────────
+const RADIUS        = 350;   // px — arc radius for Y positioning
+const CARD_GAP_DEG  = 22;    // degrees between card centers on arc
+const FLIP_MAX      = 180;   // degrees — full 180° for flat backface
+const FLIP_SPEED    = 0.55;  // curve speed: 90° at ~1.3 cards from center
+const VISIBLE_CARDS = 11;
+const HALF_VISIBLE  = Math.floor(VISIBLE_CARDS / 2);
+const SCROLL_SPEED  = 0.5;   // wheel delta multiplier (lower = smoother)
+const PERSPECTIVE   = 900;   // px — lower = more dramatic 3D
 
 const CARD_GAP_RAD = CARD_GAP_DEG * Math.PI / 180;
 
@@ -61,9 +61,7 @@ export function initRolodex(photos, {
 
   const total = photos.length;
 
-  // ★ KEY: Remove parent perspective and preserve-3d.
-  //   Each card uses perspective() in its own transform instead.
-  //   This avoids Firefox's bug where overflow ancestors flatten preserve-3d.
+  // Per-card perspective — no parent preserve-3d needed (Firefox fix)
   wrapper.style.perspective = 'none';
   wrapper.style.transformStyle = 'flat';
 
@@ -89,7 +87,7 @@ export function initRolodex(photos, {
     cards.push(sheet);
   }
 
-  // --- VIRTUAL SCROLL STATE ---
+  // ── Virtual scroll state ───────────────────────────────────────
   let scrollPos = 0;
   let targetPos = 0;
   let currentIndex = -1;
@@ -119,20 +117,18 @@ export function initRolodex(photos, {
       const dist = offset - fraction;
       const absDist = Math.abs(dist);
 
-      // --- ARC POSITIONING (Y only) ---
+      // Arc positioning (Y only)
       const arcAngle = dist * CARD_GAP_RAD;
       const y = RADIUS * Math.sin(arcAngle);
 
-      // --- DEPTH SCALE ---
-      // Simulate translateZ depth via scale: farther cards appear smaller
-      const z = RADIUS * Math.cos(arcAngle) - RADIUS; // negative (into screen)
+      // Depth scale — simulate translateZ via scale
+      const z = RADIUS * Math.cos(arcAngle) - RADIUS;
       const depthScale = PERSPECTIVE / (PERSPECTIVE + Math.abs(z));
 
-      // --- 180° FLIP ROTATION ---
+      // 180° flip rotation
       const rotDeg = getFlipAngle(dist);
 
-      // ★ Per-card perspective — no parent preserve-3d needed!
-      // Transform order: perspective → position → scale → rotate
+      // Per-card perspective: perspective → position → scale → rotate
       sheet.style.transform =
         `perspective(${PERSPECTIVE}px) translateY(${y}px) scale(${depthScale.toFixed(4)}) rotateX(${rotDeg}deg)`;
       sheet.style.transformOrigin = 'center center';
@@ -143,7 +139,7 @@ export function initRolodex(photos, {
       // Clickable only near center
       sheet.style.pointerEvents = absDist < 0.6 ? 'auto' : 'none';
 
-      // Opacity: keep ALL cards visible until far edges
+      // Opacity: keep all cards visible until far edges
       let opacity;
       if (absDist < 4) {
         opacity = 1;
@@ -154,7 +150,7 @@ export function initRolodex(photos, {
       }
       sheet.style.opacity = Math.max(0, opacity);
 
-      // Update BOTH front and back images (same image on both sides)
+      // Update both front and back images (same image on both sides)
       const frontImg = sheet.querySelector('.rolo-front .rolo-img');
       const backImg = sheet.querySelector('.rolo-back .rolo-img');
       if (frontImg && frontImg.getAttribute('src') !== photo.img) {
@@ -180,7 +176,7 @@ export function initRolodex(photos, {
     }
   }
 
-  // --- SMOOTH ANIMATION LOOP ---
+  // ── Smooth animation loop ──────────────────────────────────────
   function animate() {
     const diff = targetPos - scrollPos;
     if (Math.abs(diff) < 0.001) {
@@ -201,7 +197,7 @@ export function initRolodex(photos, {
     }
   }
 
-  // --- WHEEL EVENT (replaces native scroll for Firefox compat) ---
+  // ── Wheel event (replaces native scroll for Firefox compat) ────
   const column = wrapper.closest('.rolodex-column') || wrapper.parentElement;
   column.addEventListener('wheel', (e) => {
     e.preventDefault();
@@ -210,7 +206,7 @@ export function initRolodex(photos, {
     startAnimation();
   }, { passive: false });
 
-  // --- KEYBOARD ---
+  // ── Keyboard ───────────────────────────────────────────────────
   document.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
       e.preventDefault();
@@ -224,7 +220,7 @@ export function initRolodex(photos, {
     }
   });
 
-  // --- TOUCH SUPPORT ---
+  // ── Touch support ──────────────────────────────────────────────
   let touchStartY = 0;
   let touchStartPos = 0;
   column.addEventListener('touchstart', (e) => {

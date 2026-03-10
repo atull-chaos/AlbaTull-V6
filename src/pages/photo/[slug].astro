@@ -1,22 +1,25 @@
 ---
+/**
+ * Photo Detail Page — Alba Tull V6A
+ *
+ * Displays a single photo with metadata, voice note button,
+ * additional categories, and related photos from the same category.
+ * Detects image orientation from Sanity asset reference.
+ */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { fetchAllWithCache, getPhotoBySlug as getSanityPhotoBySlug, urlFor } from '../../lib/sanity.js';
 import { PHOTOS as LOCAL_PHOTOS, catSlug, getRelatedPhotos } from '../../data/photos.js';
 
-// ── Generate paths from Sanity → Cache → Local fallback ─────────
+// ── Generate static paths ───────────────────────────────────────
 export async function getStaticPaths() {
   const { photos, source } = await fetchAllWithCache();
 
   if ((source === 'sanity' || source === 'cache') && photos && photos.length > 0) {
     return photos
       .filter(p => p.slug && p.image)
-      .map(p => ({
-        params: { slug: p.slug },
-        props: { source }
-      }));
+      .map(p => ({ params: { slug: p.slug }, props: { source } }));
   }
 
-  // Local fallback
   return LOCAL_PHOTOS.map(photo => ({
     params: { slug: photo.slug },
     props: { source: 'local', photo }
@@ -51,16 +54,13 @@ if (source === 'cache') {
       metadata = cached.metadata || null;
       additionalCategories = cached.additionalCategories || [];
 
-      // Get ALL related photos from same category (no limit)
       const allCached = (readCache() || { photos: [] }).photos;
       related = allCached
         .filter(p => p.category?.slug === categorySlug && p.slug !== slug && p.image)
         .map(r => ({
-          id:    r._id,
-          title: r.title || 'Untitled',
-          slug:  r.slug,
-          img:   urlFor(r.image).width(600).quality(80).auto('format').url(),
-          cat:   r.category?.name || photo.cat
+          id: r._id, title: r.title || 'Untitled', slug: r.slug,
+          img: urlFor(r.image).width(600).quality(80).auto('format').url(),
+          cat: r.category?.name || photo.cat
         }));
     }
   } catch (ce) {
@@ -84,22 +84,19 @@ if (source === 'cache') {
       additionalCategories = sp.additionalCategories || [];
 
       if (sp.related && sp.related.length > 0) {
-        related = sp.related
-          .filter(r => r.image)
-          .map(r => ({
-            id:    r._id,
-            title: r.title || 'Untitled',
-            slug:  r.slug,
-            img:   urlFor(r.image).width(600).quality(80).auto('format').url(),
-            cat:   r.category?.name || photo.cat
-          }));
+        related = sp.related.filter(r => r.image).map(r => ({
+          id: r._id, title: r.title || 'Untitled', slug: r.slug,
+          img: urlFor(r.image).width(600).quality(80).auto('format').url(),
+          cat: r.category?.name || photo.cat
+        }));
       }
     }
   } catch (e) {
-    console.warn('Sanity photo fetch failed for slug:', slug, e.message);
+    console.warn('Sanity photo fetch failed:', slug, e.message);
   }
 }
 
+// Local fallback
 if (!photo) {
   const localPhoto = Astro.props.photo || LOCAL_PHOTOS.find(p => p.slug === slug);
   if (localPhoto) {
@@ -109,7 +106,7 @@ if (!photo) {
   }
 }
 
-// ── Build metadata string ──────────────────────────────────────
+// ── Build metadata string ───────────────────────────────────────
 const detailParts = [];
 if (metadata?.camera) detailParts.push(metadata.camera);
 if (metadata?.lens) detailParts.push(metadata.lens);
@@ -122,7 +119,6 @@ if (metadata?.dateTaken) {
 const detailsString = detailParts.length > 0 ? detailParts.join('. ') + '.' : '';
 
 // ── Detect image orientation from Sanity asset ref ──────────────
-// Asset refs: image-{hash}-{width}x{height}-{format}
 let orientation = 'portrait';
 
 function getOrientation(imageObj) {
@@ -143,7 +139,6 @@ function getOrientation(imageObj) {
   return 'portrait';
 }
 
-// Detect orientation from cached/sanity image data
 if (source === 'cache') {
   try {
     const { readCache } = await import('../../lib/sanity-cache.js');

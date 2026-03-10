@@ -1,8 +1,9 @@
 /**
- * Photo Data — 90 photos across 18 categories (5 per category).
- * Expanded from 54 to eliminate gaps during fast scrolling.
+ * Photo Data — Alba Tull V6A
+ *
+ * Local fallback data: 90 photos across 18 categories (5 per category).
+ * Used only when Sanity CMS and build cache are both unavailable.
  * All Unsplash URLs verified for valid photo IDs.
- * TODO: Replace with Sanity CMS GROQ queries when CMS is configured.
  */
 
 export const PHOTOS = [
@@ -65,8 +66,8 @@ export const PHOTOS = [
   // === FRANCE (5) ===
   { id:'fr1', title:'Lavender Fields', cat:'France', slug:'lavender-fields', img:'https://images.unsplash.com/photo-1499002238440-d264edd596ec?w=800&q=80', desc:'Purple waves stretching to the horizon in Provence.' },
   { id:'fr2', title:'Parisian Light', cat:'France', slug:'parisian-light', img:'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800&q=80', desc:'The City of Light lives up to its name at dusk.' },
-  { id:'fr3', title:'Château Morning', cat:'France', slug:'chateau-morning', img:'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800&q=80', desc:'Morning mist around a Loire Valley château.' },
-  { id:'fr4', title:'Côte d\'Azur', cat:'France', slug:'cote-dazur', img:'https://images.unsplash.com/photo-1533104816931-20fa691ff6ca?w=800&q=80', desc:'Azure waters meet the French Riviera.' },
+  { id:'fr3', title:'Chateau Morning', cat:'France', slug:'chateau-morning', img:'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800&q=80', desc:'Morning mist around a Loire Valley chateau.' },
+  { id:'fr4', title:'Cote d\'Azur', cat:'France', slug:'cote-dazur', img:'https://images.unsplash.com/photo-1533104816931-20fa691ff6ca?w=800&q=80', desc:'Azure waters meet the French Riviera.' },
   { id:'fr5', title:'Vineyard Rows', cat:'France', slug:'vineyard-rows', img:'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=800&q=80', desc:'Endless rows of grapevines in Burgundy.' },
 
   // === GREECE (5) ===

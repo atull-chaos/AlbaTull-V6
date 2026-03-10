@@ -1,9 +1,16 @@
 ---
+/**
+ * Category Page — Alba Tull V6A
+ *
+ * Displays photos for a category with subcategory tab navigation.
+ * Supports parent/child hierarchy (e.g., Places → North America, Europe).
+ * Photos sorted by displayOrder (pinned first, then sequential).
+ */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { fetchAllWithCache, getPhotosByCategory as getSanityPhotosByCategory, getPhotosByParentCategory as getSanityPhotosByParentCategory, urlFor } from '../../lib/sanity.js';
 import { getCategories as getLocalCategories, getPhotosByCategory as getLocalPhotosByCategory } from '../../data/photos.js';
 
-// ── Generate paths from Sanity → Cache → Local fallback ─────────
+// ── Generate static paths ───────────────────────────────────────
 export async function getStaticPaths() {
   const { categories, source } = await fetchAllWithCache();
 
@@ -20,9 +27,7 @@ export async function getStaticPaths() {
     }));
   }
 
-  // Local fallback
-  const localCats = getLocalCategories();
-  return localCats.map(cat => ({
+  return getLocalCategories().map(cat => ({
     params: { slug: cat.slug },
     props: { categoryName: cat.name, source: 'local', isParent: false, parentCategory: null, children: [] }
   }));
@@ -31,15 +36,12 @@ export async function getStaticPaths() {
 const { slug } = Astro.params;
 const { categoryName, source, isParent, parentCategory, children } = Astro.props;
 
-// ── Build sibling tabs (for subcategory navigation) ──────────────
-// If this IS a parent category: show tabs for its children
-// If this HAS a parent: show tabs for siblings (other children of same parent)
+// ── Build subcategory tabs ──────────────────────────────────────
 let tabs = [];
 let parentSlug = null;
 let parentName = null;
 
 if (isParent && children.length > 0) {
-  // This is a parent — show "All" + each child as tabs
   parentSlug = slug;
   parentName = categoryName;
   tabs = [
@@ -47,11 +49,9 @@ if (isParent && children.length > 0) {
     ...children.map(c => ({ name: c.name, slug: c.slug, active: false }))
   ];
 } else if (parentCategory) {
-  // This is a child — find siblings from the parent's data
   parentSlug = parentCategory.slug;
   parentName = parentCategory.name;
 
-  // Fetch all categories to find siblings
   const { categories: allCats } = await fetchAllWithCache();
   const parent = allCats?.find(c => c.slug === parentSlug);
   const siblings = parent?.children || [];
@@ -62,7 +62,7 @@ if (isParent && children.length > 0) {
   ];
 }
 
-// ── Fetch photos for this category ──────────────────────────────
+// ── Fetch photos ────────────────────────────────────────────────
 let photos = [];
 
 if (source === 'cache') {
@@ -73,26 +73,20 @@ if (source === 'cache') {
       let matchingPhotos;
 
       if (isParent && children.length > 0) {
-        // Parent category: show photos from ALL children + photos directly in this category
         const childSlugs = children.map(c => c.slug);
         matchingPhotos = cached.photos.filter(p => {
           if (!p.image) return false;
-          // Direct match on primary category
           if (p.category?.slug === slug) return true;
           if (childSlugs.includes(p.category?.slug)) return true;
-          // Match on additionalCategories
           const addCats = p.additionalCategories || [];
-          if (addCats.some(ac => ac.slug === slug || childSlugs.includes(ac.slug))) return true;
-          return false;
+          return addCats.some(ac => ac.slug === slug || childSlugs.includes(ac.slug));
         });
       } else {
-        // Leaf category or standalone: match primary + additional
         matchingPhotos = cached.photos.filter(p => {
           if (!p.image) return false;
           if (p.category?.slug === slug) return true;
           const addCats = p.additionalCategories || [];
-          if (addCats.some(ac => ac.slug === slug)) return true;
-          return false;
+          return addCats.some(ac => ac.slug === slug);
         });
       }
 
@@ -111,10 +105,10 @@ if (source === 'cache') {
   }
 } else if (source === 'sanity') {
   try {
-    // Parent categories need to aggregate photos from all children
     const sanityPhotos = (isParent && children.length > 0)
       ? await getSanityPhotosByParentCategory(slug)
       : await getSanityPhotosByCategory(slug);
+
     photos = sanityPhotos.map(p => ({
       id:    p._id,
       title: p.title || 'Untitled',
@@ -130,12 +124,11 @@ if (source === 'cache') {
   }
 }
 
-// Fallback to local
+// Local fallback
 if (photos.length === 0) {
   photos = getLocalPhotosByCategory(slug);
 }
 
-// Display name: use parent name if this is a parent showing "All"
 const displayName = categoryName;
 ---
 
@@ -167,16 +160,8 @@ const displayName = categoryName;
 
     <div class="photo-grid">
       {photos.map(photo => (
-        <a
-          class="grid-tile"
-          href={`/photo/${photo.slug}/`}
-        >
-          <img
-            src={photo.img}
-            alt={photo.title}
-            loading="lazy"
-            decoding="async"
-          />
+        <a class="grid-tile" href={`/photo/${photo.slug}/`}>
+          <img src={photo.img} alt={photo.title} loading="lazy" decoding="async" />
           <div class="grid-tile-title">{photo.title}</div>
         </a>
       ))}

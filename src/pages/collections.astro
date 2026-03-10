@@ -1,15 +1,19 @@
 ---
+/**
+ * Collections / Gallery Page — Alba Tull V6A
+ *
+ * Shows all top-level categories with preview photos.
+ * Parent categories display children as subcategory links.
+ * Child categories hidden from main list (shown under parent).
+ */
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { fetchAllWithCache, urlFor } from '../lib/sanity.js';
 import { getCategories as getLocalCategories } from '../data/photos.js';
 
-// ── Fetch categories from Sanity → Cache → Local ────────────────
 let allCategories = [];
-
 const { categories: rawCats, source } = await fetchAllWithCache();
 
 if ((source === 'sanity' || source === 'cache') && rawCats && rawCats.length > 0) {
-  // First pass: build all categories
   allCategories = rawCats.map(c => ({
     name:        c.name,
     slug:        c.slug,
@@ -20,11 +24,9 @@ if ((source === 'sanity' || source === 'cache') && rawCats && rawCats.length > 0
     isParent:    c.isParent || false,
     parentCategory: c.parentCategory || null,
     children:    (c.children || []).map(child => ({
-      name:  child.name,
-      slug:  child.slug,
-      count: child.photoCount || 0,
+      name: child.name, slug: child.slug, count: child.photoCount || 0,
     })),
-    photos:      (c.previewPhotos || [])
+    photos: (c.previewPhotos || [])
       .filter(p => p.image)
       .map(p => ({
         title: p.title || 'Untitled',
@@ -33,36 +35,24 @@ if ((source === 'sanity' || source === 'cache') && rawCats && rawCats.length > 0
       }))
   }));
 
-  // Second pass: parent categories with no direct photos — pull from children
+  // Parent categories with no direct photos — pull from children
   allCategories.forEach(cat => {
     if (cat.isParent && cat.photos.length === 0 && cat.children.length > 0) {
       const childSlugs = cat.children.map(ch => ch.slug);
       const childCats = allCategories.filter(c => childSlugs.includes(c.slug));
-      const childPhotos = childCats.flatMap(c => c.photos);
-      cat.photos = childPhotos.slice(0, 12);
+      cat.photos = childCats.flatMap(c => c.photos).slice(0, 12);
     }
   });
 } else {
-  const localCats = getLocalCategories();
-  allCategories = localCats.map(c => ({
-    name: c.name,
-    slug: c.slug,
-    description: '',
-    archetype: '',
-    archetypeDescription: '',
-    count: c.count || 0,
-    isParent: false,
-    parentCategory: null,
-    children: [],
-    photos: []
+  allCategories = getLocalCategories().map(c => ({
+    name: c.name, slug: c.slug, description: '', archetype: '',
+    archetypeDescription: '', count: c.count || 0, isParent: false,
+    parentCategory: null, children: [], photos: []
   }));
 }
 
-// ── Build display list: parent categories and standalone only ──
-// Hide child categories from the main list (they appear under their parent)
 const displayCategories = allCategories.filter(c => !c.parentCategory);
 
-// Total artwork count
 const totalCount = displayCategories.reduce((sum, c) => {
   if (c.isParent && c.children.length > 0) {
     return sum + c.children.reduce((cs, child) => cs + child.count, 0);
@@ -70,11 +60,8 @@ const totalCount = displayCategories.reduce((sum, c) => {
   return sum + c.count;
 }, 0);
 
-// Ensure even number of photos per category for clean grid
 function evenPhotos(photos) {
-  if (photos.length % 2 !== 0 && photos.length > 1) {
-    return photos.slice(0, photos.length - 1);
-  }
+  if (photos.length % 2 !== 0 && photos.length > 1) return photos.slice(0, -1);
   return photos;
 }
 ---
@@ -98,13 +85,9 @@ function evenPhotos(photos) {
           <div class="gallery-section">
             <div class="gallery-section-header">
               <div class="gallery-section-info">
-                {cat.archetype && (
-                  <div class="gallery-archetype">Archetype</div>
-                )}
+                {cat.archetype && <div class="gallery-archetype">Archetype</div>}
                 <h2 class="gallery-section-name">
-                  <a href={`/category/${cat.slug}/`}>
-                    {cat.archetype || cat.name}
-                  </a>
+                  <a href={`/category/${cat.slug}/`}>{cat.archetype || cat.name}</a>
                   <span class="gallery-photo-count">{photoCount}</span>
                 </h2>
                 {cat.isParent && cat.children.length > 0 && (

@@ -1,8 +1,9 @@
 /**
- * Photo Schema — Alba Tull Portfolio
+ * Photo Schema — Alba Tull V6A
  *
  * Core document type for every artwork in the collection.
- * Supports still images, optional audio narration, and optional video.
+ * Supports still images, optional audio narration, optional video,
+ * display ordering, and multi-category assignments.
  */
 export default {
   name: 'photo',
@@ -37,8 +38,22 @@ export default {
       title: 'Category',
       type: 'reference',
       to: [{ type: 'category' }],
-      description: 'Which collection this photo belongs to',
+      description: 'Primary collection this photo belongs to',
       validation: (Rule) => Rule.required(),
+    },
+    {
+      name: 'additionalCategories',
+      title: 'Additional Categories',
+      type: 'array',
+      description: 'Other collections this photo also appears in',
+      of: [{ type: 'reference', to: [{ type: 'category' }] }],
+    },
+    {
+      name: 'displayOrder',
+      title: 'Display Order',
+      type: 'number',
+      description: 'Sort position within its category (1-12 = pinned, 13+ = auto-assigned by seed-cache)',
+      initialValue: 9999,
     },
     {
       name: 'description',
@@ -78,20 +93,25 @@ export default {
       type: 'object',
       description: 'Technical details about the photograph',
       fields: [
-        { name: 'camera',      title: 'Camera',       type: 'string' },
-        { name: 'lens',        title: 'Lens',         type: 'string' },
-        { name: 'focalLength', title: 'Focal Length',  type: 'string' },
-        { name: 'aperture',    title: 'Aperture',     type: 'string' },
-        { name: 'iso',         title: 'ISO',          type: 'string' },
-        { name: 'shutterSpeed',title: 'Shutter Speed', type: 'string' },
-        { name: 'dateTaken',   title: 'Date Taken',   type: 'date' },
-        { name: 'location',    title: 'Location',     type: 'string' },
+        { name: 'camera',       title: 'Camera',        type: 'string' },
+        { name: 'lens',         title: 'Lens',          type: 'string' },
+        { name: 'focalLength',  title: 'Focal Length',   type: 'string' },
+        { name: 'aperture',     title: 'Aperture',      type: 'string' },
+        { name: 'iso',          title: 'ISO',           type: 'string' },
+        { name: 'shutterSpeed', title: 'Shutter Speed',  type: 'string' },
+        { name: 'dateTaken',    title: 'Date Taken',    type: 'date' },
+        { name: 'location',     title: 'Location',      type: 'string' },
       ],
     },
   ],
   orderings: [
     {
-      title: 'Title A–Z',
+      title: 'Display Order',
+      name: 'displayOrderAsc',
+      by: [{ field: 'displayOrder', direction: 'asc' }],
+    },
+    {
+      title: 'Title A-Z',
       name: 'titleAsc',
       by: [{ field: 'title', direction: 'asc' }],
     },
@@ -106,6 +126,14 @@ export default {
       title: 'title',
       subtitle: 'category.name',
       media: 'image',
+      order: 'displayOrder',
+    },
+    prepare({ title, subtitle, media, order }) {
+      return {
+        title: order ? `[${order}] ${title}` : title,
+        subtitle,
+        media,
+      };
     },
   },
 };

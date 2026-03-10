@@ -1,9 +1,20 @@
 ---
+/**
+ * Homepage — Alba Tull V6A
+ *
+ * Full-viewport mosaic grid with flip cards.
+ * - 30 cells (6x5 desktop, 4x6 tablet, 3x8 mobile)
+ * - Featured photo overlaid in center
+ * - 3–4 cells crossfade to new photos every 2.5s (staggered 400ms apart)
+ * - 3 video cells randomly placed
+ * - Hover flips to full-quality back face
+ * - All timing configurable via MOSAIC_CONFIG
+ */
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { fetchAllWithCache, urlFor } from '../lib/sanity.js';
 import { PHOTOS as LOCAL_PHOTOS, getCategories as getLocalCategories, catSlug as makeCatSlug } from '../data/photos.js';
 
-// ── Fetch from Sanity → Cache → Local fallback ──────────────────
+// ── Fetch data ──────────────────────────────────────────────────
 let photos = [];
 let categories = [];
 let featuredPhoto = null;
@@ -12,14 +23,14 @@ const { photos: rawPhotos, categories: rawCats, featured: rawFeatured, source } 
 
 if ((source === 'sanity' || source === 'cache') && rawPhotos) {
   photos = rawPhotos.map(p => ({
-    id:    p._id,
-    title: p.title || 'Untitled',
-    cat:   p.category?.name || 'Uncategorized',
+    id:      p._id,
+    title:   p.title || 'Untitled',
+    cat:     p.category?.name || 'Uncategorized',
     catSlug: p.category?.slug || '',
-    slug:  p.slug || p._id,
-    img:   p.image ? urlFor(p.image).width(600).quality(65).auto('format').url() : '',
-    thumb: p.image ? urlFor(p.image).width(200).height(200).fit('crop').quality(55).auto('format').url() : '',
-    desc:  p.description || ''
+    slug:    p.slug || p._id,
+    img:     p.image ? urlFor(p.image).width(600).quality(65).auto('format').url() : '',
+    thumb:   p.image ? urlFor(p.image).width(200).height(200).fit('crop').quality(55).auto('format').url() : '',
+    desc:    p.description || ''
   })).filter(p => p.img);
 
   categories = (rawCats || []).map(c => ({
@@ -37,30 +48,16 @@ if ((source === 'sanity' || source === 'cache') && rawPhotos) {
     };
   }
 } else {
-  photos = LOCAL_PHOTOS.map(p => ({
-    ...p,
-    thumb: p.img,
-    catSlug: makeCatSlug(p.cat)
-  }));
+  photos = LOCAL_PHOTOS.map(p => ({ ...p, thumb: p.img, catSlug: makeCatSlug(p.cat) }));
   categories = getLocalCategories();
 }
 
-// Fallback featured photo
+// Fallback featured
 if (!featuredPhoto && photos.length > 0) {
-  featuredPhoto = {
-    title: photos[0].title,
-    cat:   photos[0].cat,
-    img:   photos[0].img,
-    slug:  photos[0].slug
-  };
+  featuredPhoto = { title: photos[0].title, cat: photos[0].cat, img: photos[0].img, slug: photos[0].slug };
 }
 
-// To override with a local image, uncomment below and save image as public/images/featured.jpg
-// featuredPhoto = { title: featuredPhoto?.title || 'Featured', cat: featuredPhoto?.cat || '', img: '/images/featured.jpg', slug: featuredPhoto?.slug || '' };
-
-// Prepare mosaic grid — larger tiles, fewer cells
-// Layout: 5 columns × 4 rows = 20 cells, with center cell being the featured photo
-// The featured photo will span a 3×2 block in the center
+// ── Mosaic grid setup ───────────────────────────────────────────
 function shuffle(arr) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -71,52 +68,37 @@ function shuffle(arr) {
 }
 
 const shuffledPhotos = shuffle(photos);
-
-// Grid fills viewport — enough cells to cover all breakpoints
-// Desktop: 6 cols × 5 rows = 30, Tablet: 4×6 = 24, Mobile: 3×8 = 24
 const GRID_CELLS = 30;
 
-// Fill ALL cells with photos (featured overlays via CSS grid placement)
 const mosaicPhotos = [];
 for (let i = 0; i < GRID_CELLS; i++) {
   mosaicPhotos.push(shuffledPhotos[i % shuffledPhotos.length]);
 }
 
-// Featured positions not needed — featured cell is a separate grid item
-
-// All thumbnail URLs for JavaScript to cycle through
 const allThumbs = photos.map(p => p.thumb).filter(Boolean);
 
-// Video cells — 3 random positions among the grid cells
+// Video cells — 3 random positions
 const mosaicVideos = [
   'https://videos.pexels.com/video-files/3864103/3864103-hd_1920_1080_30fps.mp4',
   'https://videos.pexels.com/video-files/856974/856974-hd_1920_1080_30fps.mp4',
   'https://videos.pexels.com/video-files/857251/857251-hd_1920_1080_25fps.mp4'
 ];
 
-const availableForVideo = [];
-for (let i = 0; i < GRID_CELLS; i++) {
-  availableForVideo.push(i);
-}
-const videoShuffled = shuffle(availableForVideo);
-const videoCellIndices = new Set(videoShuffled.slice(0, mosaicVideos.length));
+const availablePositions = shuffle(Array.from({ length: GRID_CELLS }, (_, i) => i));
+const videoCellIndices = new Set(availablePositions.slice(0, mosaicVideos.length));
 const videoCellMap = new Map();
 let vIdx = 0;
 videoCellIndices.forEach(pos => { videoCellMap.set(pos, vIdx++); });
 ---
 
-<BaseLayout title="Alba Tull - Photography Portfolio">
+<BaseLayout title="Alba Tull — Photography Portfolio">
   <div class="mosaic-fullpage">
     <div class="mosaic-grid-full" id="mosaicGrid">
-      {/* Featured photo — separate grid item, positioned via CSS */}
+      {/* Featured photo — positioned via CSS grid */}
       {featuredPhoto && (
         <div class="mosaic-featured-cell">
           <a href={featuredPhoto.slug ? `/photo/${featuredPhoto.slug}/` : '#'} class="featured-link">
-            <img
-              src={featuredPhoto.img}
-              alt={featuredPhoto.title}
-              class="featured-center-img"
-            />
+            <img src={featuredPhoto.img} alt={featuredPhoto.title} class="featured-center-img" />
             <div class="featured-overlay">
               <div class="featured-label">Featured</div>
               <div class="featured-title">{featuredPhoto.title}</div>
@@ -125,7 +107,7 @@ videoCellIndices.forEach(pos => { videoCellMap.set(pos, vIdx++); });
         </div>
       )}
 
-      {/* All mosaic cells — flip cards: front=muted, back=full color */}
+      {/* Mosaic cells — flip cards */}
       {mosaicPhotos.map((p, i) => {
         const videoIndex = videoCellMap.get(i);
         const isVideo = videoIndex !== undefined;
@@ -159,7 +141,7 @@ videoCellIndices.forEach(pos => { videoCellMap.set(pos, vIdx++); });
       })}
     </div>
 
-    <!-- Branding overlay at bottom -->
+    <!-- Branding overlay -->
     <div class="mosaic-branding">
       <div class="mosaic-brand-name">Alba Tull</div>
       <div class="mosaic-brand-sub">Photography Portfolio of Work (2005—2025)</div>
@@ -170,12 +152,10 @@ videoCellIndices.forEach(pos => { videoCellMap.set(pos, vIdx++); });
     </div>
   </div>
 
-  <!-- Pass all photo data to JavaScript for cycling -->
+  <!-- Data bridge to JavaScript -->
   <script define:vars={{ allThumbs, photos }}>
     window.__mosaicThumbs = allThumbs;
-    // Map thumbnail URL → slug so crossfade can update href
     window.__thumbToSlug = {};
-    // Also map the full-size image URL → slug (fallback)
     photos.forEach(p => {
       if (p.thumb) window.__thumbToSlug[p.thumb] = p.slug;
       if (p.img) window.__thumbToSlug[p.img] = p.slug;
@@ -183,7 +163,20 @@ videoCellIndices.forEach(pos => { videoCellMap.set(pos, vIdx++); });
   </script>
 
   <script>
-    // === Photo Mosaic — Flip Cards with Breathing Grid ===
+    // ══════════════════════════════════════════════════════════════
+    // Mosaic Crossfade Engine — V6A
+    //
+    // CONFIGURABLE: Change these constants to adjust behavior.
+    // ══════════════════════════════════════════════════════════════
+    const MOSAIC_CONFIG = {
+      minCells:    3,       // Min cells to crossfade per cycle
+      maxCells:    4,       // Max cells to crossfade per cycle
+      intervalMs:  2500,    // Base interval between cycles (ms)
+      staggerMs:   400,     // Stagger delay between each cell (ms)
+      fadeDurMs:   1400,    // CSS fade transition duration (ms)
+      videoCells:  3        // Number of video cells (informational)
+    };
+
     const thumbs = window.__mosaicThumbs || [];
     if (thumbs.length === 0) {
       document.querySelectorAll('.mosaic-face-front .mosaic-current').forEach(img => {
@@ -191,7 +184,8 @@ videoCellIndices.forEach(pos => { videoCellMap.set(pos, vIdx++); });
       });
     }
 
-    const cells = document.querySelectorAll('.mosaic-cell:not(.mosaic-featured-cell)');
+    const cells = document.querySelectorAll('.mosaic-cell:not(.mosaic-featured-cell):not(.mosaic-video-cell)');
+
     if (cells.length > 0 && thumbs.length > 2) {
       const cellUrls = new Map();
       cells.forEach(cell => {
@@ -225,15 +219,15 @@ videoCellIndices.forEach(pos => { videoCellMap.set(pos, vIdx++); });
         cellUrls.set(cell, newUrl);
 
         next.onload = () => {
+          // Update link href
           if (cell.tagName === 'A') {
             const slug = thumbToSlug[newUrl];
             if (slug) cell.href = `/photo/${slug}/`;
           }
-          // Update back face to match new photo (higher quality version)
+          // Update back face to higher quality
           const backImg = back ? back.querySelector('.mosaic-img') : null;
           if (backImg) {
-            const fullUrl = newUrl.replace(/w=200&h=200&fit=crop&q=55/, 'w=600&q=65');
-            backImg.src = fullUrl;
+            backImg.src = newUrl.replace(/w=200&h=200&fit=crop&q=55/, 'w=600&q=65');
           }
 
           next.classList.add('is-visible');
@@ -244,22 +238,27 @@ videoCellIndices.forEach(pos => { videoCellMap.set(pos, vIdx++); });
             current.classList.remove('is-hidden');
             next.classList.remove('is-visible');
             next.src = '';
-          }, 1600);
+          }, MOSAIC_CONFIG.fadeDurMs);
         };
 
         next.alt = '';
         next.src = newUrl;
       }
 
-      // Every 3 seconds, fade 1-2 random cells
+      // Staggered crossfade: 3–4 cells per cycle, each staggered by 400ms
       setInterval(() => {
-        const count = 1 + Math.floor(Math.random() * 2);
+        const count = MOSAIC_CONFIG.minCells +
+          Math.floor(Math.random() * (MOSAIC_CONFIG.maxCells - MOSAIC_CONFIG.minCells + 1));
         const indices = new Set();
-        while (indices.size < count) {
+        while (indices.size < Math.min(count, cells.length)) {
           indices.add(Math.floor(Math.random() * cells.length));
         }
-        indices.forEach(i => crossfadeCell(cells[i]));
-      }, 3000);
+        let delay = 0;
+        indices.forEach(i => {
+          setTimeout(() => crossfadeCell(cells[i]), delay);
+          delay += MOSAIC_CONFIG.staggerMs;
+        });
+      }, MOSAIC_CONFIG.intervalMs);
     }
   </script>
 </BaseLayout>

@@ -1,18 +1,25 @@
 {
-  "name": "albatull-v3",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "albatull-v6a",
+  "version": "6.1.0",
+  "description": "Alba Tull Photography Portfolio — Astro + Sanity CMS",
+  "type": "module",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "deploy": "rm -rf .astro && astro build",
+    "seed": "node seed-cache.mjs",
+    "deploy": "node seed-cache.mjs && rm -rf .astro && astro build",
     "preview": "astro preview"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "photography",
+    "portfolio",
+    "astro",
+    "sanity"
+  ],
+  "author": "Alba Tull",
   "license": "ISC",
   "dependencies": {
+    "@rollup/rollup-linux-arm64-gnu": "^4.59.0",
     "@sanity/client": "^7.16.0",
     "@sanity/image-url": "^2.0.3",
     "astro": "^5.18.0",

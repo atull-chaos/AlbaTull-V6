@@ -1,8 +1,9 @@
 /**
- * Category Schema — Alba Tull Portfolio
+ * Category Schema — Alba Tull V6A
  *
- * Represents a photography category (e.g. "Botanical", "Japan", "Wildlife").
- * Each photo belongs to exactly one category.
+ * Represents a photography collection (e.g. "Botanical", "Places", "Wildlife").
+ * Supports parent/child hierarchy for subcategories (e.g. Places → Europe, Asia).
+ * Each photo belongs to one primary category and optionally additional categories.
  */
 export default {
   name: 'category',
@@ -32,6 +33,19 @@ export default {
       rows: 3,
     },
     {
+      name: 'archetype',
+      title: 'Archetype Name',
+      type: 'string',
+      description: 'Optional archetype display name for the collections page (e.g. "The Explorer")',
+    },
+    {
+      name: 'archetypeDescription',
+      title: 'Archetype Description',
+      type: 'text',
+      description: 'Optional archetype description shown on the collections page',
+      rows: 3,
+    },
+    {
       name: 'coverImage',
       title: 'Cover Image',
       type: 'image',
@@ -39,10 +53,25 @@ export default {
       options: { hotspot: true },
     },
     {
+      name: 'isParent',
+      title: 'Is Parent Category',
+      type: 'boolean',
+      description: 'Enable if this category has subcategories (e.g. "Places" with continent children)',
+      initialValue: false,
+    },
+    {
+      name: 'parentCategory',
+      title: 'Parent Category',
+      type: 'reference',
+      to: [{ type: 'category' }],
+      description: 'If this is a subcategory, select its parent (e.g. "Europe" → parent "Places")',
+      hidden: ({ document }) => document?.isParent === true,
+    },
+    {
       name: 'order',
       title: 'Display Order',
       type: 'number',
-      description: 'Sort order (lower numbers appear first)',
+      description: 'Sort order on the collections page (lower numbers appear first)',
       initialValue: 100,
     },
   ],
@@ -53,12 +82,21 @@ export default {
       by: [{ field: 'order', direction: 'asc' }],
     },
     {
-      title: 'Name A–Z',
+      title: 'Name A-Z',
       name: 'nameAsc',
       by: [{ field: 'name', direction: 'asc' }],
     },
   ],
   preview: {
-    select: { title: 'name', media: 'coverImage' },
+    select: {
+      title: 'name',
+      media: 'coverImage',
+      isParent: 'isParent',
+      parentName: 'parentCategory.name',
+    },
+    prepare({ title, media, isParent, parentName }) {
+      const subtitle = isParent ? 'Parent category' : (parentName ? `Child of ${parentName}` : '');
+      return { title, subtitle, media };
+    },
   },
 };

@@ -1,12 +1,16 @@
 /**
- * Repeating-Frame Transition (Codrops-inspired)
- * Creates a fan of image frames that animate from the clicked tile's position
- * to the detail hero image position. Each frame reveals via alternating clip-paths
- * with staggered timing, creating the signature "repeating card" opening effect.
+ * Repeating-Frame Transition — Alba Tull V6A
+ *
+ * Creates a fan of image frames that animate from the clicked tile's
+ * position to the detail hero image position. Each frame reveals via
+ * alternating clip-paths with staggered timing, creating the signature
+ * "repeating card" opening effect.
+ *
+ * Respects prefers-reduced-motion.
  */
 
 function reducedMotion() {
-  return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
 }
 
 function lerp(a, b, t) {
@@ -18,8 +22,8 @@ function easeInOut(t) {
 }
 
 function makeFrame(srcUrl, srcRect) {
-  const el = document.createElement("div");
-  el.className = "rt-frame";
+  const el = document.createElement('div');
+  el.className = 'rt-frame';
   el.style.left = `${srcRect.left}px`;
   el.style.top = `${srcRect.top}px`;
   el.style.width = `${srcRect.width}px`;
@@ -36,11 +40,11 @@ function getRect(el) {
 /**
  * Run the repeating-frame transition.
  * @param {Object} options
- * @param {HTMLElement} options.fromEl - The source element (tile/thumbnail)
- * @param {HTMLElement} options.toEl - The destination element (hero image in overlay)
- * @param {string} options.imgUrl - The still image URL to use for frames
- * @param {number} [options.frames=11] - Number of repeating frames
- * @param {number} [options.duration=560] - Duration in ms for each frame's animation
+ * @param {HTMLElement} options.fromEl  - Source element (tile/thumbnail)
+ * @param {HTMLElement} options.toEl    - Destination element (hero image)
+ * @param {string}      options.imgUrl  - Still image URL for frames
+ * @param {number}      [options.frames=11]   - Number of repeating frames
+ * @param {number}      [options.duration=560] - Duration in ms per frame
  */
 export async function runRepeatTransition({
   fromEl,
@@ -56,17 +60,17 @@ export async function runRepeatTransition({
   const dstRect = getRect(toEl);
 
   // Create the transition layer
-  const layer = document.createElement("div");
-  layer.className = "rt-layer";
+  const layer = document.createElement('div');
+  layer.className = 'rt-layer';
   document.body.appendChild(layer);
 
   // Create staggered frames
   const movers = [];
   for (let i = 0; i < frames; i++) {
     const f = makeFrame(imgUrl, srcRect);
-    // Alternate clip direction: even frames reveal from left, odd from right
-    f.style.clipPath = (i % 2 === 0) ? "inset(0 100% 0 0)" : "inset(0 0 0 100%)";
-    f.style.opacity = "0.95";
+    // Alternate clip direction: even → reveal from left, odd → from right
+    f.style.clipPath = (i % 2 === 0) ? 'inset(0 100% 0 0)' : 'inset(0 0 0 100%)';
+    f.style.opacity = '0.95';
     layer.appendChild(f);
     movers.push(f);
   }
