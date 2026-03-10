@@ -271,20 +271,29 @@ function loadCategories() {
     sel.innerHTML = '<option value="">-- Select a gallery --</option>';
 
     var parents = categories.filter(function(c) { return c.isParent; });
-    var standalones = categories.filter(function(c) { return !c.isParent && !c.parentCategory; });
     var children = categories.filter(function(c) { return c.parentCategory; });
+    var standalones = categories.filter(function(c) {
+      return !c.isParent && !c.parentCategory && c.photoCount > 0;
+    });
 
     // Parents with their children as optgroups
     parents.forEach(function(p) {
-      var group = document.createElement('optgroup');
-      group.label = p.name + ' (' + p.photoCount + ')';
+      var kids = children.filter(function(c) { return c.parentCategory.slug === p.slug; });
+      // Calculate total photos across all children
+      var totalPhotos = kids.reduce(function(sum, k) { return sum + (k.photoCount || 0); }, 0) + (p.photoCount || 0);
 
+      // Skip parents with no photos at all
+      if (totalPhotos === 0 && kids.length === 0) return;
+
+      var group = document.createElement('optgroup');
+      group.label = p.name + ' (' + totalPhotos + ')';
+
+      // "All" option for parent category
       var opt = document.createElement('option');
       opt.value = 'parent:' + p.slug;
-      opt.textContent = p.name + ' -- All (' + p.photoCount + ')';
+      opt.textContent = p.name + ' -- All (' + totalPhotos + ')';
       group.appendChild(opt);
 
-      var kids = children.filter(function(c) { return c.parentCategory.slug === p.slug; });
       kids.forEach(function(k) {
         var ko = document.createElement('option');
         ko.value = k.slug;
@@ -295,10 +304,11 @@ function loadCategories() {
       sel.appendChild(group);
     });
 
-    // Standalone categories
+    // Standalone categories (only those with photos)
     if (standalones.length > 0) {
       var group = document.createElement('optgroup');
       group.label = 'Other';
+      standalones.sort(function(a, b) { return (a.name || '').localeCompare(b.name || ''); });
       standalones.forEach(function(s) {
         var opt = document.createElement('option');
         opt.value = s.slug;
