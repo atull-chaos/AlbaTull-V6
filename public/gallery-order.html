@@ -46,10 +46,9 @@
   .pinned-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:24px;min-height:120px;padding:16px;background:#111;border-radius:10px;border:2px dashed #333}
   .pinned-slot{position:relative;aspect-ratio:1;background:#1a1a1a;border-radius:8px;border:2px solid #333;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;transition:all .2s}
   .pinned-slot.empty{border-style:dashed;opacity:.4}
-  .pinned-slot.empty .slot-num{font-size:2rem;color:#333}
   .pinned-slot.filled{border-color:#f39c12}
   .pinned-slot.filled:hover{border-color:#e74c3c}
-  .pinned-slot.filled:hover::after{content:'✕ Remove';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(231,76,60,.8);color:#fff;font-weight:700;font-size:.85rem;z-index:5}
+  .pinned-slot.filled:hover::after{content:'Remove';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(231,76,60,.8);color:#fff;font-weight:700;font-size:.85rem;z-index:5}
   .pinned-slot img{width:100%;height:100%;object-fit:cover}
   .slot-num{position:absolute;top:4px;left:4px;background:rgba(243,156,18,.9);color:#000;font-weight:800;font-size:.75rem;width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:50%;z-index:3}
   .pinned-slot .slot-title{position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,.8));font-size:.7rem;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -63,7 +62,6 @@
   .photo-card img{width:100%;height:100%;object-fit:cover}
   .photo-card .card-title{position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:linear-gradient(transparent,rgba(0,0,0,.85));font-size:.65rem;color:#ccc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-  /* ── Loading ────────────────────────────────────── */
   .loading{text-align:center;padding:60px;color:#555;font-size:1.1rem}
   .loading .spinner{display:inline-block;width:32px;height:32px;border:3px solid #333;border-top-color:#4a90d9;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:12px}
   @keyframes spin{to{transform:rotate(360deg)}}
@@ -71,7 +69,6 @@
   .count-badge{background:#222;padding:4px 10px;border-radius:12px;font-size:.85rem;color:#888}
   .count-badge strong{color:#f39c12}
 
-  /* ── Responsive ─────────────────────────────────── */
   @media(max-width:900px){
     .pinned-grid{grid-template-columns:repeat(4,1fr)}
     .photo-grid{grid-template-columns:repeat(5,1fr)}
@@ -84,7 +81,7 @@
 </head>
 <body>
 
-<!-- Password Gate -->
+<!-- Password Gate — input injected by JS to defeat password managers -->
 <div id="gate">
   <div id="gate-inner">
     <h1>GALLERY ORDER</h1>
@@ -97,35 +94,35 @@
 <div id="app">
   <div class="toolbar">
     <select id="category-select">
-      <option value="">— Select a gallery —</option>
+      <option value="">-- Select a gallery --</option>
     </select>
     <span class="count-badge" id="pin-count"><strong>0</strong>/12 pinned</span>
     <button class="btn-apply" id="btn-apply" disabled>Apply Order</button>
     <button class="btn-clear" id="btn-clear">Clear All</button>
-    <button class="btn-reset" id="btn-reset">↻ Reload</button>
+    <button class="btn-reset" id="btn-reset">Reload</button>
   </div>
 
   <div class="status" id="status"></div>
 
-  <div class="section-label pinned">★ Pinned — First 12 Slots (click a slot to remove, click a photo below to add)</div>
+  <div class="section-label pinned">Pinned -- First 12 Slots (click a slot to remove, click a photo below to add)</div>
   <div class="pinned-grid" id="pinned-grid"></div>
 
   <div class="section-label available" id="available-label">Available Photos</div>
   <div class="photo-grid" id="photo-grid"></div>
 
   <div class="loading" id="loading" style="display:none">
-    <div class="spinner"></div><br>Loading photos…
+    <div class="spinner"></div><br>Loading photos...
   </div>
 </div>
 
 <script>
 /* ================================================================
-   Gallery Order Manager — Alba Tull
+   Gallery Order Manager — Alba Tull V6A
    Clean rewrite — March 2026
    ================================================================ */
 
 // ── Config ──────────────────────────────────────────
-const CONFIG = {
+var CONFIG = {
   projectId:  'vo1f0ucj',
   dataset:    'production',
   apiVersion: '2024-01-01',
@@ -135,27 +132,26 @@ const CONFIG = {
   pwHash:     '93a2333edbe99e65960b31b0022616aeff99407fbbc03cf98ba50ffc6598bf5d'
 };
 
-const SANITY_BASE = `https://${CONFIG.projectId}.api.sanity.io/v${CONFIG.apiVersion}/data`;
+var SANITY_BASE = 'https://' + CONFIG.projectId + '.api.sanity.io/v' + CONFIG.apiVersion + '/data';
 
 // ── State ───────────────────────────────────────────
-let allPhotos = [];
-let pinnedIds = [];
-let categories = [];
+var allPhotos = [];
+var pinnedIds = [];
+var categories = [];
 
-// ── DOM refs ────────────────────────────────────────
-const $ = (id) => document.getElementById(id);
+// ── DOM helper ──────────────────────────────────────
+function $(id) { return document.getElementById(id); }
 
 // ── Password Gate ───────────────────────────────────
-// Build the password input dynamically after 300ms so password
-// managers never see a <form> or <input> during initial DOM scan.
-window.addEventListener('DOMContentLoaded', () => {
+// Build input dynamically after 300ms so password managers miss it
+window.addEventListener('DOMContentLoaded', function() {
   setTimeout(buildPasswordGate, 300);
 });
 
 function buildPasswordGate() {
-  const container = $('pw-container');
+  var container = $('pw-container');
 
-  const inp = document.createElement('input');
+  var inp = document.createElement('input');
   inp.type = 'text';
   inp.className = 'pw-input';
   inp.placeholder = 'Enter password';
@@ -164,7 +160,7 @@ function buildPasswordGate() {
   inp.setAttribute('data-1p-ignore', 'true');
   inp.setAttribute('data-lpignore', 'true');
 
-  const btn = document.createElement('button');
+  var btn = document.createElement('button');
   btn.className = 'pw-btn';
   btn.textContent = 'Enter';
   btn.type = 'button';
@@ -173,33 +169,35 @@ function buildPasswordGate() {
   container.appendChild(btn);
   inp.focus();
 
-  inp.addEventListener('keydown', (e) => {
+  inp.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') { e.preventDefault(); tryPassword(inp); }
   });
-  btn.addEventListener('click', () => tryPassword(inp));
+  btn.addEventListener('click', function() { tryPassword(inp); });
 }
 
-async function tryPassword(inp) {
-  const pw = inp.value.trim();
+function tryPassword(inp) {
+  var pw = inp.value.trim();
   if (!pw) { $('pw-error').textContent = 'Please enter a password'; return; }
 
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
-  const hash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw)).then(function(buf) {
+    var hash = Array.from(new Uint8Array(buf)).map(function(b) {
+      return b.toString(16).padStart(2, '0');
+    }).join('');
 
-  if (hash === CONFIG.pwHash) {
-    $('gate').style.display = 'none';
-    $('app').style.display = 'block';
-    initApp();
-  } else {
-    $('pw-error').textContent = 'Wrong password';
-    inp.value = '';
-    inp.focus();
-  }
+    if (hash === CONFIG.pwHash) {
+      $('gate').style.display = 'none';
+      $('app').style.display = 'block';
+      initApp();
+    } else {
+      $('pw-error').textContent = 'Wrong password';
+      inp.value = '';
+      inp.focus();
+    }
+  });
 }
 
 // ── App Init ────────────────────────────────────────
 function initApp() {
-  // Wire up event listeners
   $('category-select').addEventListener('change', loadCategory);
   $('btn-apply').addEventListener('click', applyOrder);
   $('btn-clear').addEventListener('click', clearPins);
@@ -218,62 +216,59 @@ function sanityImageUrl(ref, w) {
   return 'https://cdn.sanity.io/images/' + CONFIG.projectId + '/' + CONFIG.dataset + '/' + m[1] + '-' + m[2] + '.' + m[3] + '?w=' + w + '&h=' + w + '&fit=crop&q=55';
 }
 
-async function groq(query) {
+function groq(query) {
   var url = SANITY_BASE + '/query/' + CONFIG.dataset + '?query=' + encodeURIComponent(query);
   console.log('[groq] Fetching:', url.substring(0, 120) + '...');
-  try {
-    var resp = await fetch(url, {
-      headers: { 'Authorization': 'Bearer ' + CONFIG.readToken }
-    });
-    console.log('[groq] Response status:', resp.status);
+
+  return fetch(url, {
+    headers: { 'Authorization': 'Bearer ' + CONFIG.readToken }
+  }).then(function(resp) {
+    console.log('[groq] Status:', resp.status);
     if (!resp.ok) {
-      var errText = await resp.text();
-      console.error('[groq] Error body:', errText);
-      throw new Error('Sanity API returned ' + resp.status + ': ' + errText);
+      return resp.text().then(function(t) { throw new Error('Sanity API ' + resp.status + ': ' + t); });
     }
-    var data = await resp.json();
-    console.log('[groq] Result count:', data.result ? data.result.length : 'N/A');
+    return resp.json();
+  }).then(function(data) {
+    console.log('[groq] Results:', data.result ? data.result.length : 'N/A');
     return data.result;
-  } catch (err) {
-    console.error('[groq] Fetch failed:', err);
+  }).catch(function(err) {
+    console.error('[groq] Error:', err);
     showStatus('API Error: ' + err.message, 'error');
     throw err;
-  }
+  });
 }
 
-async function mutate(mutations) {
-  var resp = await fetch(SANITY_BASE + '/mutate/' + CONFIG.dataset, {
+function mutate(mutations) {
+  return fetch(SANITY_BASE + '/mutate/' + CONFIG.dataset, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer ' + CONFIG.writeToken
     },
     body: JSON.stringify({ mutations: mutations })
-  });
-  return resp.json();
+  }).then(function(r) { return r.json(); });
 }
 
 // ── Load Categories ─────────────────────────────────
-async function loadCategories() {
-  showStatus('Loading categories…', 'info');
+function loadCategories() {
+  showStatus('Loading categories...', 'info');
 
-  try {
-    categories = await groq(
-      '*[_type == "category"] | order(order asc, name asc) {' +
-      '  _id, name, "slug": slug.current,' +
-      '  "isParent": coalesce(isParent, false),' +
-      '  "parentCategory": parentCategory->{name, "slug": slug.current},' +
-      '  "children": *[_type == "category" && parentCategory._ref == ^._id] | order(order asc, name asc) {' +
-      '    _id, name, "slug": slug.current' +
-      '  },' +
-      '  "photoCount": count(*[_type == "photo" && (category._ref == ^._id || ^._id in additionalCategories[]._ref)])' +
-      '}'
-    );
-
+  groq(
+    '*[_type == "category"] | order(order asc, name asc) {' +
+    '  _id, name, "slug": slug.current,' +
+    '  "isParent": coalesce(isParent, false),' +
+    '  "parentCategory": parentCategory->{name, "slug": slug.current},' +
+    '  "children": *[_type == "category" && parentCategory._ref == ^._id] | order(order asc, name asc) {' +
+    '    _id, name, "slug": slug.current' +
+    '  },' +
+    '  "photoCount": count(*[_type == "photo" && (category._ref == ^._id || ^._id in additionalCategories[]._ref)])' +
+    '}'
+  ).then(function(result) {
+    categories = result;
     console.log('[loadCategories] Got', categories.length, 'categories');
 
     var sel = $('category-select');
-    sel.innerHTML = '<option value="">— Select a gallery —</option>';
+    sel.innerHTML = '<option value="">-- Select a gallery --</option>';
 
     var parents = categories.filter(function(c) { return c.isParent; });
     var standalones = categories.filter(function(c) { return !c.isParent && !c.parentCategory; });
@@ -286,7 +281,7 @@ async function loadCategories() {
 
       var opt = document.createElement('option');
       opt.value = 'parent:' + p.slug;
-      opt.textContent = p.name + ' — All (' + p.photoCount + ')';
+      opt.textContent = p.name + ' -- All (' + p.photoCount + ')';
       group.appendChild(opt);
 
       var kids = children.filter(function(c) { return c.parentCategory.slug === p.slug; });
@@ -314,15 +309,14 @@ async function loadCategories() {
     }
 
     hideStatus();
-
-  } catch (err) {
+  }).catch(function(err) {
     showStatus('Failed to load categories: ' + err.message, 'error');
     console.error('[loadCategories] Error:', err);
-  }
+  });
 }
 
 // ── Load Photos for Category ────────────────────────
-async function loadCategory() {
+function loadCategory() {
   var val = $('category-select').value;
   if (!val) return;
 
@@ -355,23 +349,22 @@ async function loadCategory() {
       '}';
   }
 
-  try {
-    allPhotos = await groq(query);
+  groq(query).then(function(result) {
+    allPhotos = result;
     $('loading').style.display = 'none';
 
-    // Pre-populate pinned list from existing displayOrder values
+    // Pre-populate pinned list from existing displayOrder (1-12 only)
     var ordered = allPhotos
-      .filter(function(p) { return p.displayOrder && p.displayOrder < 9999; })
+      .filter(function(p) { return p.displayOrder && p.displayOrder >= 1 && p.displayOrder <= 12; })
       .sort(function(a, b) { return a.displayOrder - b.displayOrder; });
     pinnedIds = ordered.map(function(p) { return p._id; });
 
     $('available-label').textContent = 'Available Photos (' + allPhotos.length + ' total)';
     render();
-
-  } catch (err) {
+  }).catch(function(err) {
     $('loading').style.display = 'none';
     showStatus('Failed to load photos: ' + err.message, 'error');
-  }
+  });
 }
 
 // ── Render ──────────────────────────────────────────
@@ -438,10 +431,10 @@ function renderPhotoGrid() {
   });
 }
 
-// ── Pin/Unpin Actions ───────────────────────────────
+// ── Pin/Unpin ───────────────────────────────────────
 function addPin(photoId) {
   if (pinnedIds.length >= CONFIG.maxPins) {
-    showStatus('Already at ' + CONFIG.maxPins + ' pins — remove one first', 'error');
+    showStatus('Already at ' + CONFIG.maxPins + ' pins -- remove one first', 'error');
     setTimeout(hideStatus, 2000);
     return;
   }
@@ -469,53 +462,60 @@ function updatePinCount() {
 }
 
 // ── Apply Order to Sanity ───────────────────────────
-async function applyOrder() {
+function applyOrder() {
   var btn = $('btn-apply');
   btn.disabled = true;
-  btn.textContent = 'Saving…';
-  showStatus('Saving display order to Sanity…', 'info');
+  btn.textContent = 'Saving...';
+  showStatus('Saving display order to Sanity...', 'info');
 
-  try {
-    var mutations = [];
+  var mutations = [];
 
-    // Clear displayOrder from photos that had one but are no longer pinned
-    allPhotos.forEach(function(p) {
-      if (p.displayOrder && p.displayOrder < 9999 && pinnedIds.indexOf(p._id) === -1) {
-        mutations.push({
-          patch: { id: p._id, unset: ['displayOrder'] }
-        });
-      }
-    });
-
-    // Set displayOrder on pinned photos (1-indexed)
-    pinnedIds.forEach(function(id, i) {
+  // Clear displayOrder from photos that were pinned but aren't anymore
+  allPhotos.forEach(function(p) {
+    if (p.displayOrder && p.displayOrder >= 1 && p.displayOrder <= 12 && pinnedIds.indexOf(p._id) === -1) {
       mutations.push({
-        patch: { id: id, set: { displayOrder: i + 1 } }
+        patch: { id: p._id, unset: ['displayOrder'] }
+      });
+    }
+  });
+
+  // Set displayOrder on pinned photos (1-indexed)
+  pinnedIds.forEach(function(id, i) {
+    mutations.push({
+      patch: { id: id, set: { displayOrder: i + 1 } }
+    });
+  });
+
+  if (mutations.length === 0) {
+    showStatus('No changes to save', 'info');
+    btn.textContent = 'Apply Order';
+    return;
+  }
+
+  // Batch in groups of 50
+  var batches = [];
+  for (var i = 0; i < mutations.length; i += 50) {
+    batches.push(mutations.slice(i, i + 50));
+  }
+
+  var chain = Promise.resolve();
+  batches.forEach(function(batch) {
+    chain = chain.then(function() {
+      return mutate(batch).then(function(result) {
+        if (result.error) throw new Error(result.error.description || 'Mutation failed');
       });
     });
+  });
 
-    if (mutations.length > 0) {
-      // Batch in groups of 50
-      for (var i = 0; i < mutations.length; i += 50) {
-        var batch = mutations.slice(i, i + 50);
-        var result = await mutate(batch);
-        if (result.error) {
-          throw new Error(result.error.description || 'Mutation failed');
-        }
-      }
-    }
-
-    showStatus('Saved! ' + pinnedIds.length + ' photos pinned to top. Rebuild site to see changes.', 'success');
+  chain.then(function() {
+    showStatus('Saved! ' + pinnedIds.length + ' photos pinned to top. Next build will auto-order the rest.', 'success');
     btn.textContent = 'Apply Order';
-
-    // Reload to confirm
-    await loadCategory();
-
-  } catch (err) {
+    return loadCategory();
+  }).catch(function(err) {
     showStatus('Error: ' + err.message, 'error');
     btn.disabled = false;
     btn.textContent = 'Apply Order';
-  }
+  });
 }
 
 // ── Status Helpers ──────────────────────────────────

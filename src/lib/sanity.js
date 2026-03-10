@@ -1,9 +1,14 @@
 /**
- * Sanity CMS Client — Alba Tull Portfolio V5
+ * Sanity CMS Client — Alba Tull Portfolio V6A
  *
  * Provides read access to the Sanity dataset for photos, categories,
- * and site settings. Supports parent/child category hierarchy and
- * multi-category photo assignments.
+ * and site settings. Supports parent/child category hierarchy,
+ * multi-category photo assignments, and sequential displayOrder.
+ *
+ * All photos have displayOrder assigned by seed-cache.mjs on each build:
+ *   - Pinned photos (1-12) keep their manually set positions
+ *   - Remaining photos are numbered sequentially (13+) alphabetically
+ *   - This ensures consistent, gap-free ordering at all times
  *
  * Falls back to build cache → local data when Sanity is unavailable.
  *

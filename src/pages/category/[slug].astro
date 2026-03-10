@@ -121,8 +121,10 @@ if (source === 'cache') {
       slug:  p.slug || p._id,
       img:   p.image ? urlFor(p.image).width(600).quality(65).auto('format').url() : '',
       desc:  p.description || '',
-      cat:   p.category?.name || categoryName
-    })).filter(p => p.img);
+      cat:   p.category?.name || categoryName,
+      displayOrder: p.displayOrder || 9999
+    })).filter(p => p.img)
+      .sort((a, b) => a.displayOrder - b.displayOrder || a.title.localeCompare(b.title));
   } catch (e) {
     console.warn('Sanity photos fetch failed for category:', slug, e.message);
   }
