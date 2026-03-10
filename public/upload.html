@@ -517,7 +517,7 @@
   <div class="container app-content" id="appContent">
     <div class="header">
       <h1>Bulk Photo Upload</h1>
-      <p>Upload multiple photos to a category at once. Images are auto-named from filenames.</p>
+      <p>Upload multiple photos to a category at once. Titles and descriptions are read from embedded EXIF/IPTC metadata. Falls back to filename if no metadata found.</p>
     </div>
 
     <!-- Connection Status -->
@@ -780,6 +780,92 @@
         }
       }
 
+      // ── EXIF / IPTC Metadata Reader ─────────────────────────────
+      // Reads embedded metadata from JPEG files (IPTC ObjectName,
+      // Caption, XMP Title/Description, EXIF ImageDescription)
+      async function readImageMetadata(file) {
+        var meta = { title: '', description: '', keywords: [] };
+
+        try {
+          var buffer = await file.arrayBuffer();
+          var view = new DataView(buffer);
+
+          // Only JPEG files have EXIF/IPTC
+          if (view.getUint16(0) !== 0xFFD8) return meta;
+
+          // Search for APP1 (EXIF) and APP13 (IPTC) markers
+          var offset = 2;
+          while (offset < view.byteLength - 4) {
+            var marker = view.getUint16(offset);
+            if (marker === 0xFFE1) {
+              // APP1 — EXIF/XMP
+              var len = view.getUint16(offset + 2);
+              var block = new Uint8Array(buffer, offset + 4, len - 2);
+              var str = String.fromCharCode.apply(null, block.slice(0, 100));
+
+              if (str.indexOf('http://ns.adobe.com/xap/1.0/') >= 0) {
+                // XMP block — extract title and description
+                var xmpStr = new TextDecoder().decode(block);
+                var titleMatch = xmpStr.match(/<dc:title[\s\S]*?<rdf:li[^>]*>([^<]+)<\/rdf:li>/);
+                if (titleMatch && titleMatch[1]) meta.title = titleMatch[1].trim();
+                var descMatch = xmpStr.match(/<dc:description[\s\S]*?<rdf:li[^>]*>([^<]+)<\/rdf:li>/);
+                if (descMatch && descMatch[1]) meta.description = descMatch[1].trim();
+              }
+            } else if (marker === 0xFFED) {
+              // APP13 — IPTC-NAA
+              var len2 = view.getUint16(offset + 2);
+              var iptcData = new Uint8Array(buffer, offset + 4, len2 - 2);
+              var iptcMeta = parseIPTC(iptcData);
+              if (iptcMeta.title && !meta.title) meta.title = iptcMeta.title;
+              if (iptcMeta.description && !meta.description) meta.description = iptcMeta.description;
+              if (iptcMeta.keywords.length > 0) meta.keywords = iptcMeta.keywords;
+            }
+
+            if ((marker & 0xFF00) !== 0xFF00) break;
+            var segLen = view.getUint16(offset + 2);
+            offset += 2 + segLen;
+          }
+        } catch (e) {
+          console.warn('Metadata read failed for', file.name, e);
+        }
+
+        return meta;
+      }
+
+      function parseIPTC(data) {
+        var result = { title: '', description: '', keywords: [] };
+        var i = 0;
+
+        // Skip Photoshop header if present
+        var headerStr = String.fromCharCode.apply(null, data.slice(0, 14));
+        if (headerStr.indexOf('Photoshop') >= 0) {
+          // Find 1C marker (IPTC record start)
+          while (i < data.length - 5) {
+            if (data[i] === 0x1C) break;
+            i++;
+          }
+        }
+
+        while (i < data.length - 5) {
+          if (data[i] !== 0x1C) { i++; continue; }
+          var record = data[i + 1];
+          var tag = data[i + 2];
+          var fieldLen = (data[i + 3] << 8) | data[i + 4];
+          i += 5;
+
+          if (record === 2 && fieldLen > 0 && i + fieldLen <= data.length) {
+            var fieldValue = new TextDecoder().decode(data.slice(i, i + fieldLen));
+
+            if (tag === 5) result.title = fieldValue;           // IPTC Object Name
+            if (tag === 120) result.description = fieldValue;   // IPTC Caption/Abstract
+            if (tag === 25) result.keywords.push(fieldValue);   // IPTC Keywords
+          }
+          i += fieldLen;
+        }
+
+        return result;
+      }
+
       // ── Helpers ───────────────────────────────────────────────────
       function slugify(text) {
         return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -808,7 +894,7 @@
         selectedCategoryName = opt.dataset.name || '';
 
         if (selectedCategoryId) {
-          categoryCount.textContent = selectedCategoryName + ' currently has ' + opt.dataset.count + ' photos. New uploads will be named "' + selectedCategoryName + ' ' + (parseInt(opt.dataset.count) + 1) + '", "' + selectedCategoryName + ' ' + (parseInt(opt.dataset.count) + 2) + '", etc.';
+          categoryCount.textContent = selectedCategoryName + ' currently has ' + opt.dataset.count + ' photos. Titles will be read from embedded EXIF/IPTC metadata when available, otherwise from filenames.';
         } else {
           categoryCount.textContent = '';
         }
@@ -848,10 +934,11 @@
         updateUploadButton();
       }
 
-      function renderPreviews() {
+      async function renderPreviews() {
         previewGrid.innerHTML = '';
 
-        selectedFiles.forEach(function(file, i) {
+        for (var i = 0; i < selectedFiles.length; i++) {
+          var file = selectedFiles[i];
           var item = document.createElement('div');
           item.className = 'preview-item';
           item.id = 'preview-' + i;
@@ -860,23 +947,30 @@
           img.src = URL.createObjectURL(file);
           item.appendChild(img);
 
+          // Try to read embedded metadata for the preview title
+          var meta = await readImageMetadata(file);
+          var displayTitle = meta.title || titleFromFilename(file.name);
+
           var name = document.createElement('div');
           name.className = 'preview-name';
-          name.textContent = titleFromFilename(file.name);
+          name.textContent = displayTitle;
+          if (meta.title) name.style.color = '#7fe07f'; // Green = from metadata
           item.appendChild(name);
 
           var removeBtn = document.createElement('button');
           removeBtn.className = 'remove-btn';
           removeBtn.textContent = '\u00D7';
-          removeBtn.onclick = function() {
-            selectedFiles.splice(i, 1);
-            renderPreviews();
-            updateUploadButton();
-          };
+          (function(idx) {
+            removeBtn.onclick = function() {
+              selectedFiles.splice(idx, 1);
+              renderPreviews();
+              updateUploadButton();
+            };
+          })(i);
           item.appendChild(removeBtn);
 
           previewGrid.appendChild(item);
-        });
+        }
 
         previewCount.textContent = selectedFiles.length + ' image' + (selectedFiles.length !== 1 ? 's' : '');
         previewSection.classList.toggle('visible', selectedFiles.length > 0);
@@ -918,7 +1012,11 @@
 
         for (var i = 0; i < selectedFiles.length; i++) {
           var file = selectedFiles[i];
-          var fileTitle = titleFromFilename(file.name);
+
+          // Read embedded EXIF/IPTC metadata first
+          var meta = await readImageMetadata(file);
+          var fileTitle = meta.title || titleFromFilename(file.name);
+          var fileDescription = meta.description || '';
           var fileSlug = slugify(fileTitle);
           var docId = 'photo-' + fileSlug;
 
@@ -945,7 +1043,7 @@
             // Upload image asset via REST API
             var asset = await uploadImage(file);
 
-            // Create photo document
+            // Create photo document with metadata
             await createOrReplace({
               _id: docId,
               _type: 'photo',
@@ -957,10 +1055,11 @@
               },
               category: { _type: 'reference', _ref: selectedCategoryId },
               featured: false,
-              description: ''
+              description: fileDescription
             });
 
-            log('  OK: "' + fileTitle + '"', 'success');
+            var metaSource = meta.title ? ' (from metadata)' : ' (from filename)';
+            log('  OK: "' + fileTitle + '"' + metaSource, 'success');
             uploaded++;
 
             if (previewItem) {
