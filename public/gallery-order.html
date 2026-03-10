@@ -12,9 +12,10 @@
   #gate{display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0a0a}
   #gate-inner{text-align:center}
   #gate h1{font-size:1.6rem;margin-bottom:1rem;letter-spacing:2px;color:#ccc}
-  #pw-container div{display:inline-block;padding:12px 20px;font-size:1rem;border:1px solid #333;border-radius:8px;background:#111;color:#fff;width:260px;text-align:center;cursor:text;min-height:46px;outline:none;-webkit-text-security:disc;font-family:monospace}
-  #pw-container div:focus{border-color:#4a90d9}
-  #pw-container div:empty::before{content:'Enter password';color:#666;-webkit-text-security:none;font-family:'Segoe UI',system-ui,sans-serif}
+  #pw-container input{padding:12px 20px;font-size:1rem;border:1px solid #333;border-radius:8px;background:#111;color:#fff;width:260px;text-align:center;display:block;margin:0 auto}
+  #pw-container input:focus{outline:none;border-color:#4a90d9}
+  #pw-container button{margin-top:12px;padding:10px 30px;font-size:.95rem;border:none;border-radius:8px;background:#4a90d9;color:#fff;cursor:pointer;font-weight:600}
+  #pw-container button:hover{background:#5aa0e9}
   #gate .error{color:#e74c3c;margin-top:8px;font-size:.85rem}
 
   /* ── Main App ──────────────────────────────────── */
@@ -134,30 +135,40 @@ let pinnedIds = [];      // ordered array of photo _ids (max 12)
 let categories = [];     // all categories
 let currentCatSlug = '';
 
-// ── Password (uses contentEditable div — invisible to password managers) ──
-// Create the "input" after a delay so autofill scanners miss it entirely
+// ── Password ────────────────────────────────────────
+// Input is created dynamically via JS (not in HTML) so password managers
+// never see it during their initial DOM scan. No <form> wrapper either.
 setTimeout(() => {
   const container = document.getElementById('pw-container');
-  const div = document.createElement('div');
-  div.contentEditable = 'true';
-  div.spellcheck = false;
-  div.setAttribute('data-placeholder', 'Enter password');
-  container.appendChild(div);
-  div.focus();
 
-  // Submit on Enter key
-  div.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      checkPassword();
-    }
+  const inp = document.createElement('input');
+  inp.type = 'text';
+  inp.placeholder = 'Enter password';
+  inp.style.cssText = '-webkit-text-security:disc';
+  inp.autocomplete = 'off';
+  inp.setAttribute('data-1p-ignore', 'true');
+  inp.setAttribute('data-lpignore', 'true');
+  inp.name = 'gallery_key_' + Date.now();  // random name each load
+
+  const btn = document.createElement('button');
+  btn.textContent = 'Enter';
+  btn.type = 'button';
+
+  container.appendChild(inp);
+  container.appendChild(btn);
+  inp.focus();
+
+  inp.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); checkPassword(); }
   });
-}, 500);
+  btn.addEventListener('click', () => checkPassword());
+}, 300);
 
 async function checkPassword() {
-  const div = document.querySelector('#pw-container div');
-  if (!div) return;
-  const pw = div.textContent.trim();
+  const inp = document.querySelector('#pw-container input');
+  if (!inp) return;
+  const pw = inp.value.trim();
+  if (!pw) { document.getElementById('pw-error').textContent = 'Please enter a password'; return; }
   const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw))))
     .map(b => b.toString(16).padStart(2,'0')).join('');
   if (hash === '93a2333edbe99e65960b31b0022616aeff99407fbbc03cf98ba50ffc6598bf5d') {
@@ -166,8 +177,8 @@ async function checkPassword() {
     loadCategories();
   } else {
     document.getElementById('pw-error').textContent = 'Wrong password';
-    div.textContent = '';
-    div.focus();
+    inp.value = '';
+    inp.focus();
   }
 }
 
