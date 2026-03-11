@@ -109,7 +109,8 @@ html, body {
   margin-left: auto;
 }
 
-.nav-links a {
+.nav-links > a,
+.nav-dropdown-trigger {
   font-family: var(--nav-font);
   font-size: 13px;
   font-weight: 500;
@@ -120,7 +121,8 @@ html, body {
   transition: opacity 0.3s ease;
 }
 
-.nav-links a:hover {
+.nav-links > a:hover,
+.nav-dropdown-trigger:hover {
   opacity: 0.4;
 }
 
@@ -279,6 +281,7 @@ a.mosaic-cell {
   inset: 0;
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
+  overflow: hidden;
 }
 
 /* Front face — muted/desaturated with blue veil */
