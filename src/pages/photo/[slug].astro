@@ -15,19 +15,51 @@ export async function getStaticPaths() {
   const { photos, source } = await fetchAllWithCache();
 
   if ((source === 'sanity' || source === 'cache') && photos && photos.length > 0) {
-    return photos
-      .filter(p => p.slug && p.image)
-      .map(p => ({ params: { slug: p.slug }, props: { source } }));
+    const validPhotos = photos.filter(p => p.slug && p.image);
+
+    // Group photos by primary category for prev/next navigation
+    const byCat = {};
+    for (const p of validPhotos) {
+      const catKey = p.category?.slug || '_uncategorized';
+      if (!byCat[catKey]) byCat[catKey] = [];
+      byCat[catKey].push(p);
+    }
+    // Sort each category group by displayOrder then title
+    for (const key of Object.keys(byCat)) {
+      byCat[key].sort((a, b) =>
+        (a.displayOrder || 9999) - (b.displayOrder || 9999) ||
+        (a.title || '').localeCompare(b.title || '')
+      );
+    }
+
+    return validPhotos.map(p => {
+      const catKey = p.category?.slug || '_uncategorized';
+      const group = byCat[catKey];
+      const idx = group.findIndex(g => g.slug === p.slug);
+      const prev = idx > 0 ? group[idx - 1] : null;
+      const next = idx < group.length - 1 ? group[idx + 1] : null;
+
+      return {
+        params: { slug: p.slug },
+        props: {
+          source,
+          navPrev: prev ? { slug: prev.slug, title: prev.title } : null,
+          navNext: next ? { slug: next.slug, title: next.title } : null,
+          navPosition: idx + 1,
+          navTotal: group.length,
+        }
+      };
+    });
   }
 
   return LOCAL_PHOTOS.map(photo => ({
     params: { slug: photo.slug },
-    props: { source: 'local', photo }
+    props: { source: 'local', photo, navPrev: null, navNext: null, navPosition: 0, navTotal: 0 }
   }));
 }
 
 const { slug } = Astro.params;
-const { source } = Astro.props;
+const { source, navPrev, navNext, navPosition, navTotal } = Astro.props;
 
 // ── Fetch photo detail ──────────────────────────────────────────
 let photo = null;
@@ -155,6 +187,29 @@ if (source === 'cache') {
 
 {photo && (
   <BaseLayout title={`${photo.title} — Alba Tull`} description={photo.desc} ogImage={photo.img}>
+    {/* ── Prev / Next Navigation ────────────────────── */}
+    {(navPrev || navNext) && (
+      <nav class="photo-nav" aria-label="Photo navigation">
+        {navPrev ? (
+          <a class="photo-nav-arrow photo-nav-prev" href={`/photo/${navPrev.slug}/`} title={navPrev.title}>
+            <span class="photo-nav-icon">&larr;</span>
+            <span class="photo-nav-label">{navPrev.title}</span>
+          </a>
+        ) : <span class="photo-nav-arrow photo-nav-disabled" />}
+
+        {navTotal > 0 && (
+          <span class="photo-nav-position">{navPosition} / {navTotal}</span>
+        )}
+
+        {navNext ? (
+          <a class="photo-nav-arrow photo-nav-next" href={`/photo/${navNext.slug}/`} title={navNext.title}>
+            <span class="photo-nav-label">{navNext.title}</span>
+            <span class="photo-nav-icon">&rarr;</span>
+          </a>
+        ) : <span class="photo-nav-arrow photo-nav-disabled" />}
+      </nav>
+    )}
+
     <div class={`detail-layout detail-layout--${orientation}`}>
       <div class="detail-hero">
         <img src={photo.img} alt={photo.title} />
@@ -218,5 +273,19 @@ if (source === 'cache') {
         )}
       </div>
     </div>
+
+    {/* Keyboard arrow navigation */}
+    {(navPrev || navNext) && (
+      <script define:vars={{ prevSlug: navPrev?.slug || '', nextSlug: navNext?.slug || '' }}>
+        document.addEventListener('keydown', function(e) {
+          if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+          if (e.key === 'ArrowLeft' && prevSlug) {
+            window.location.href = '/photo/' + prevSlug + '/';
+          } else if (e.key === 'ArrowRight' && nextSlug) {
+            window.location.href = '/photo/' + nextSlug + '/';
+          }
+        });
+      </script>
+    )}
   </BaseLayout>
 )}
