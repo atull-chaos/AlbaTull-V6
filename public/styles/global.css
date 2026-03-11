@@ -59,6 +59,15 @@ img, video, canvas {
   --nav-font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
+/* ── View Transition overrides ─────────────────
+   Make page swaps instant (no fade/flash) so
+   photo-to-photo navigation feels seamless.    */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none !important;
+  mix-blend-mode: normal;
+}
+
 /* Base */
 html, body {
   width: 100%;
