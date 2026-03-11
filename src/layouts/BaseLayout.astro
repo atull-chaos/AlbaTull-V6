@@ -281,9 +281,9 @@ const {
       }
     });
 
-    // Layer 6: Transparent shield overlays
+    // Layer 6: Transparent shield overlays (skip mosaic cells — they use flip cards)
     function addShields() {
-      document.querySelectorAll('.gallery-tile, .grid-tile, .mosaic-cell, .collection-thumb, .detail-hero')
+      document.querySelectorAll('.gallery-tile, .grid-tile, .collection-thumb, .detail-hero')
         .forEach(function(el) {
           if (el.querySelector('.img-shield')) return;
           var shield = document.createElement('div');
@@ -293,6 +293,29 @@ const {
         });
     }
     addShields();
+
+    // Mosaic touch support: toggle flip on tap (hover doesn't work on touch)
+    (function() {
+      var isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      if (!isTouchDevice) return;
+
+      var lastFlipped = null;
+      document.addEventListener('touchstart', function(e) {
+        var cell = e.target.closest('.mosaic-cell');
+
+        // Un-flip previous cell
+        if (lastFlipped && lastFlipped !== cell) {
+          lastFlipped.classList.remove('is-flipped');
+        }
+
+        if (cell) {
+          cell.classList.toggle('is-flipped');
+          lastFlipped = cell.classList.contains('is-flipped') ? cell : null;
+        } else {
+          lastFlipped = null;
+        }
+      });
+    })();
 
     // Layer 7: PrintScreen flash disruption
     var flashEl = null;
