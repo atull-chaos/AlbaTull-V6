@@ -162,10 +162,17 @@ html, body {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
-.nav-dropdown:hover > .nav-dropdown-menu {
-  display: block;
+/* Invisible bridge so mouse doesn't lose hover between trigger and menu */
+.nav-dropdown-menu::before {
+  content: '';
+  position: absolute;
+  top: -15px;
+  left: 0;
+  right: 0;
+  height: 15px;
 }
 
+.nav-dropdown:hover > .nav-dropdown-menu,
 .nav-dropdown.is-open > .nav-dropdown-menu {
   display: block;
 }
@@ -241,6 +248,7 @@ main {
   cursor: pointer;
   display: block;
   text-decoration: none;
+  -webkit-perspective: 800px;
   perspective: 800px;
 }
 
@@ -252,13 +260,16 @@ a.mosaic-cell {
 .mosaic-flip-inner {
   position: absolute;
   inset: 0;
+  -webkit-transform-style: preserve-3d;
   transform-style: preserve-3d;
+  -webkit-transition: -webkit-transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
   transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Flip on hover */
 .mosaic-cell:hover .mosaic-flip-inner,
 .mosaic-cell.is-flipped .mosaic-flip-inner {
+  -webkit-transform: rotateY(180deg);
   transform: rotateY(180deg);
 }
 
@@ -266,9 +277,8 @@ a.mosaic-cell {
 .mosaic-face {
   position: absolute;
   inset: 0;
-  backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  overflow: hidden;
+  backface-visibility: hidden;
 }
 
 /* Front face — muted/desaturated with blue veil */
@@ -289,6 +299,7 @@ a.mosaic-cell {
 /* Back face — full vibrant color (pre-rotated) */
 .mosaic-face-back {
   z-index: 1;
+  -webkit-transform: rotateY(180deg);
   transform: rotateY(180deg);
 }
 
@@ -344,6 +355,11 @@ a.mosaic-cell {
   display: block;
   z-index: 3;
   filter: saturate(0.1) brightness(1.05) contrast(0.8);
+}
+
+.mosaic-cell:hover .mosaic-face-front video,
+.mosaic-cell.is-flipped .mosaic-face-front video {
+  filter: saturate(1) brightness(1) contrast(1);
 }
 
 .mosaic-face-back video {

@@ -243,16 +243,13 @@ const {
       });
     }
 
-    // ── Gallery dropdown toggle (mobile tap + desktop click fallback) ──
+    // ── Gallery dropdown toggle (click to open/close on all devices) ──
     var dropdownTrigger = document.querySelector('.nav-dropdown-trigger');
     var dropdown = document.getElementById('galleryDropdown');
     if (dropdownTrigger && dropdown) {
       dropdownTrigger.addEventListener('click', function(e) {
-        // On mobile, toggle the dropdown instead of navigating
-        if (window.innerWidth <= 768) {
-          e.preventDefault();
-          dropdown.classList.toggle('is-open');
-        }
+        e.preventDefault();
+        dropdown.classList.toggle('is-open');
       });
       // Close dropdown when clicking outside
       document.addEventListener('click', function(e) {
