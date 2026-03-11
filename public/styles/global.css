@@ -778,48 +778,32 @@ a.mosaic-cell {
 .photo-nav {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 24px;
+  justify-content: center;
+  padding: 8px 24px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--bg-surface);
   font-family: var(--sans);
-  font-size: 13px;
-  gap: 16px;
+  font-size: 14px;
+  gap: 24px;
 }
 
 .photo-nav-arrow {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
   text-decoration: none;
   color: var(--text-secondary);
   transition: color 0.2s;
-  min-width: 0;
-  flex: 1;
+  font-size: 20px;
+  line-height: 1;
+  width: 32px;
+  height: 32px;
 }
-
-.photo-nav-prev { justify-content: flex-start; }
-.photo-nav-next { justify-content: flex-end; }
 
 .photo-nav-arrow:hover { color: var(--text-primary); }
-.photo-nav-disabled { visibility: hidden; flex: 1; }
-
-.photo-nav-icon {
-  font-size: 18px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.photo-nav-label {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 220px;
-  font-weight: 500;
-}
+.photo-nav-disabled { color: var(--bg-surface); pointer-events: none; }
 
 .photo-nav-position {
-  flex-shrink: 0;
   color: var(--text-muted);
   font-size: 12px;
   letter-spacing: 1px;
@@ -1504,6 +1488,127 @@ a.mosaic-cell {
 }
 
 /* ============================================
+   Search Bar (in nav)
+   ============================================ */
+.nav-search {
+  margin-left: auto;
+  position: relative;
+}
+
+.search-wrapper {
+  position: relative;
+}
+
+.search-input {
+  width: 180px;
+  padding: 6px 12px 6px 32px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  outline: none;
+  transition: width 0.3s, border-color 0.2s;
+}
+
+.search-input:focus {
+  width: 260px;
+  border-color: var(--text-secondary);
+}
+
+.search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.search-results {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 340px;
+  max-height: 420px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  z-index: 1000;
+}
+
+.search-results.is-open {
+  display: block;
+}
+
+.search-result-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  text-decoration: none;
+  color: var(--text-primary);
+  transition: background 0.15s;
+  border-bottom: 1px solid var(--bg-surface);
+}
+
+.search-result-item:last-child {
+  border-bottom: none;
+}
+
+.search-result-item:hover {
+  background: var(--bg-secondary);
+}
+
+.search-result-thumb {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.search-result-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.search-result-title {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-result-cat {
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.search-no-results {
+  padding: 20px 14px;
+  text-align: center;
+  color: var(--text-muted);
+  font-family: var(--sans);
+  font-size: 13px;
+}
+
+/* ============================================
    Large screens (1600px+) — fill the space
    ============================================ */
 @media (min-width: 1600px) {
@@ -1600,11 +1705,8 @@ a.mosaic-cell {
     grid-row: 2 / 5 !important;
   }
   .photo-nav {
-    padding: 8px 16px;
-  }
-  .photo-nav-label {
-    max-width: 120px;
-    font-size: 12px;
+    padding: 6px 16px;
+    gap: 16px;
   }
   .detail-layout {
     flex-direction: column;
@@ -1678,6 +1780,23 @@ a.mosaic-cell {
   }
   .nav-mobile-toggle {
     display: flex;
+  }
+  .nav-search {
+    order: -1;
+    margin-left: 0;
+    width: 100%;
+    padding: 0 20px 12px;
+  }
+  .search-input {
+    width: 100%;
+  }
+  .search-input:focus {
+    width: 100%;
+  }
+  .search-results {
+    width: calc(100vw - 40px);
+    right: auto;
+    left: 0;
   }
   .hero-name {
     font-size: 40px;

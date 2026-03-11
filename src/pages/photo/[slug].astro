@@ -187,15 +187,14 @@ if (source === 'cache') {
 
 {photo && (
   <BaseLayout title={`${photo.title} — Alba Tull`} description={photo.desc} ogImage={photo.img}>
-    {/* ── Prev / Next Navigation ────────────────────── */}
+    {/* ── Prev / Next Navigation (arrows + counter only) ── */}
     {(navPrev || navNext) && (
       <nav class="photo-nav" aria-label="Photo navigation">
         {navPrev ? (
           <a class="photo-nav-arrow photo-nav-prev" href={`/photo/${navPrev.slug}/`} title={navPrev.title}>
-            <span class="photo-nav-icon">&larr;</span>
-            <span class="photo-nav-label">{navPrev.title}</span>
+            &larr;
           </a>
-        ) : <span class="photo-nav-arrow photo-nav-disabled" />}
+        ) : <span class="photo-nav-arrow photo-nav-disabled">&larr;</span>}
 
         {navTotal > 0 && (
           <span class="photo-nav-position">{navPosition} / {navTotal}</span>
@@ -203,10 +202,9 @@ if (source === 'cache') {
 
         {navNext ? (
           <a class="photo-nav-arrow photo-nav-next" href={`/photo/${navNext.slug}/`} title={navNext.title}>
-            <span class="photo-nav-label">{navNext.title}</span>
-            <span class="photo-nav-icon">&rarr;</span>
+            &rarr;
           </a>
-        ) : <span class="photo-nav-arrow photo-nav-disabled" />}
+        ) : <span class="photo-nav-arrow photo-nav-disabled">&rarr;</span>}
       </nav>
     )}
 

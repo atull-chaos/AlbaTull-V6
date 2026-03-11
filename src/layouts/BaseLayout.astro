@@ -53,8 +53,18 @@ const {
       <a href="/category/sports/">Sports</a>
       <a href="/category/wildlife/">Wildlife</a>
       <a href="/category/experimentations/">Experimentations</a>
-      <a href="/category/misc/">Miscellaneous</a>
       <a href="/about/">About</a>
+    </div>
+    <div class="nav-search" id="navSearch">
+      <div class="search-wrapper">
+        <input type="text" id="searchInput" class="search-input"
+          placeholder="Search photos..." autocomplete="off" spellcheck="false" />
+        <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <div class="search-results" id="searchResults"></div>
+      </div>
     </div>
     <button class="nav-mobile-toggle" aria-label="Toggle menu" id="navToggle">
       <span></span><span></span><span></span>
@@ -68,7 +78,7 @@ const {
 
   <!-- Footer -->
   <footer class="site-footer">
-    <p>&copy; {new Date().getFullYear()} Alba Tull. All rights reserved. All images on this site are protected by copyright law. Unauthorized use, reproduction, or distribution is strictly prohibited.</p>
+    <p>&copy; 2005&ndash;{new Date().getFullYear()} Alba Tull. All rights reserved. All images on this site are protected by copyright law. Unauthorized use, reproduction, or distribution is strictly prohibited.</p>
   </footer>
 
   <!-- Scripts -->
@@ -171,6 +181,64 @@ const {
         });
     }
 
+    // ── Search index (loaded once, reused across navigations) ──────
+    var searchIndex = null;
+    var searchLoading = false;
+
+    function loadSearchIndex(cb) {
+      if (searchIndex) return cb(searchIndex);
+      if (searchLoading) return;
+      searchLoading = true;
+      fetch('/search-index.json')
+        .then(function(r) { return r.json(); })
+        .then(function(data) { searchIndex = data; searchLoading = false; cb(data); })
+        .catch(function() { searchLoading = false; });
+    }
+
+    function doSearch(query, index) {
+      if (!query || query.length < 2) return [];
+      var q = query.toLowerCase();
+      var terms = q.split(/\s+/).filter(Boolean);
+      var results = [];
+      for (var i = 0; i < index.length; i++) {
+        var p = index[i];
+        var haystack = (p.t + ' ' + p.c + ' ' + p.d).toLowerCase();
+        var match = true;
+        for (var j = 0; j < terms.length; j++) {
+          if (haystack.indexOf(terms[j]) === -1) { match = false; break; }
+        }
+        if (match) {
+          results.push(p);
+          if (results.length >= 12) break;
+        }
+      }
+      return results;
+    }
+
+    function renderResults(results, container) {
+      if (results.length === 0) {
+        container.innerHTML = '<div class="search-no-results">No photos found</div>';
+        container.classList.add('is-open');
+        return;
+      }
+      var html = '';
+      for (var i = 0; i < results.length; i++) {
+        var r = results[i];
+        html += '<a class="search-result-item" href="/photo/' + r.s + '/">' +
+          (r.i ? '<img src="' + r.i + '" alt="" class="search-result-thumb" loading="lazy" />' : '') +
+          '<div class="search-result-info">' +
+            '<span class="search-result-title">' + escHtml(r.t) + '</span>' +
+            '<span class="search-result-cat">' + escHtml(r.c) + '</span>' +
+          '</div></a>';
+      }
+      container.innerHTML = html;
+      container.classList.add('is-open');
+    }
+
+    function escHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
     document.addEventListener('astro:page-load', function() {
       // Mobile nav toggle — re-bind on each navigation
       var toggle = document.getElementById('navToggle');
@@ -183,6 +251,49 @@ const {
 
       // Re-apply shield overlays on new page content
       addShields();
+
+      // ── Search bar setup ───────────────────────────────────────
+      var input = document.getElementById('searchInput');
+      var resultsEl = document.getElementById('searchResults');
+      if (!input || !resultsEl) return;
+
+      var debounceTimer = null;
+      input.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        var val = input.value.trim();
+        if (val.length < 2) {
+          resultsEl.classList.remove('is-open');
+          resultsEl.innerHTML = '';
+          return;
+        }
+        debounceTimer = setTimeout(function() {
+          loadSearchIndex(function(index) {
+            var results = doSearch(val, index);
+            renderResults(results, resultsEl);
+          });
+        }, 150);
+      });
+
+      // Close results on click outside
+      document.addEventListener('click', function(e) {
+        var searchWrap = document.querySelector('.search-wrapper');
+        if (searchWrap && !searchWrap.contains(e.target)) {
+          resultsEl.classList.remove('is-open');
+        }
+      });
+
+      // Close results on Escape
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+          resultsEl.classList.remove('is-open');
+          input.blur();
+        }
+      });
+
+      // Preload index on focus
+      input.addEventListener('focus', function() {
+        loadSearchIndex(function() {});
+      });
     });
   </script>
 </body>

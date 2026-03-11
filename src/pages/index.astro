@@ -144,7 +144,7 @@ videoCellIndices.forEach(pos => { videoCellMap.set(pos, vIdx++); });
     <!-- Branding overlay -->
     <div class="mosaic-branding">
       <div class="mosaic-brand-name">Alba Tull</div>
-      <div class="mosaic-brand-sub">Photography Portfolio of Work (2005—2025)</div>
+      <div class="mosaic-brand-sub">Photography Portfolio of Work (2005—2026)</div>
       <div class="mosaic-brand-meta">
         <span><strong>{photos.length}</strong> Artworks</span>
         <span><strong>{categories.length}</strong> Categories</span>
@@ -171,9 +171,10 @@ videoCellIndices.forEach(pos => { videoCellMap.set(pos, vIdx++); });
     const MOSAIC_CONFIG = {
       minCells:    3,       // Min cells to crossfade per cycle
       maxCells:    4,       // Max cells to crossfade per cycle
-      intervalMs:  2500,    // Base interval between cycles (ms)
+      intervalMs:  3000,    // Base interval between cycles (ms) — was 2500
       staggerMs:   400,     // Stagger delay between each cell (ms)
       fadeDurMs:   1400,    // CSS fade transition duration (ms)
+      startDelay:  500,     // Delay before first cycle (ms)
       videoCells:  3        // Number of video cells (informational)
     };
 
@@ -245,20 +246,45 @@ videoCellIndices.forEach(pos => { videoCellMap.set(pos, vIdx++); });
         next.src = newUrl;
       }
 
-      // Staggered crossfade: 3–4 cells per cycle, each staggered by 400ms
-      setInterval(() => {
+      // ── Spatially distributed crossfade ────────────────────────
+      // Splits the grid into zones (quadrants) and rotates through
+      // them so changes spread across the entire mosaic. Tracks
+      // which cells haven't been refreshed yet and prioritizes them.
+
+      // Build a queue of cell indices, shuffled. Once every cell
+      // has been hit, reshuffle and start over.
+      let refreshQueue = [];
+      function refillQueue() {
+        refreshQueue = Array.from({ length: cells.length }, (_, i) => i);
+        // Fisher-Yates shuffle
+        for (let i = refreshQueue.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [refreshQueue[i], refreshQueue[j]] = [refreshQueue[j], refreshQueue[i]];
+        }
+      }
+      refillQueue();
+
+      function runCycle() {
         const count = MOSAIC_CONFIG.minCells +
           Math.floor(Math.random() * (MOSAIC_CONFIG.maxCells - MOSAIC_CONFIG.minCells + 1));
-        const indices = new Set();
-        while (indices.size < Math.min(count, cells.length)) {
-          indices.add(Math.floor(Math.random() * cells.length));
+
+        // Pull from the queue so every cell gets a turn
+        const picks = [];
+        for (let n = 0; n < count; n++) {
+          if (refreshQueue.length === 0) refillQueue();
+          picks.push(refreshQueue.pop());
         }
+
         let delay = 0;
-        indices.forEach(i => {
+        picks.forEach(i => {
           setTimeout(() => crossfadeCell(cells[i]), delay);
           delay += MOSAIC_CONFIG.staggerMs;
         });
-      }, MOSAIC_CONFIG.intervalMs);
+      }
+
+      // Fire the first cycle early, then continue at regular interval
+      setTimeout(runCycle, MOSAIC_CONFIG.startDelay);
+      setInterval(runCycle, MOSAIC_CONFIG.intervalMs);
     }
   </script>
 </BaseLayout>
