@@ -41,12 +41,24 @@ let tabs = [];
 let parentSlug = null;
 let parentName = null;
 
+// Special case: Experimentations includes Miscellaneous as a subcollection
+const EXPERIMENTATIONS_CHILDREN = ['misc'];
+const isExperimentations = slug === 'experimentations';
+
 if (isParent && children.length > 0) {
   parentSlug = slug;
   parentName = categoryName;
   tabs = [
     { name: 'All', slug: slug, active: true },
     ...children.map(c => ({ name: c.name, slug: c.slug, active: false }))
+  ];
+} else if (isExperimentations) {
+  // Treat Experimentations as a virtual parent with MISC as child
+  parentSlug = slug;
+  parentName = categoryName;
+  tabs = [
+    { name: 'All', slug: slug, active: true },
+    { name: 'Miscellaneous', slug: 'misc', active: false }
   ];
 } else if (parentCategory) {
   parentSlug = parentCategory.slug;
@@ -65,6 +77,15 @@ if (isParent && children.length > 0) {
 // ── Fetch photos ────────────────────────────────────────────────
 let photos = [];
 
+// Build the list of slugs to include for this category
+const includeSlugs = [slug];
+if (isParent && children.length > 0) {
+  children.forEach(c => includeSlugs.push(c.slug));
+}
+if (isExperimentations) {
+  EXPERIMENTATIONS_CHILDREN.forEach(s => includeSlugs.push(s));
+}
+
 if (source === 'cache') {
   try {
     const { readCache } = await import('../../lib/sanity-cache.js');
@@ -72,14 +93,12 @@ if (source === 'cache') {
     if (cached && cached.photos) {
       let matchingPhotos;
 
-      if (isParent && children.length > 0) {
-        const childSlugs = children.map(c => c.slug);
+      if (includeSlugs.length > 1) {
         matchingPhotos = cached.photos.filter(p => {
           if (!p.image) return false;
-          if (p.category?.slug === slug) return true;
-          if (childSlugs.includes(p.category?.slug)) return true;
+          if (includeSlugs.includes(p.category?.slug)) return true;
           const addCats = p.additionalCategories || [];
-          return addCats.some(ac => ac.slug === slug || childSlugs.includes(ac.slug));
+          return addCats.some(ac => includeSlugs.includes(ac.slug));
         });
       } else {
         matchingPhotos = cached.photos.filter(p => {
