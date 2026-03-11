@@ -3,6 +3,32 @@
 > The "holy grail" document for anyone working on this codebase.
 > Last updated: March 11, 2026
 
+## Current Status & What Needs Pushing
+
+**READY TO COMMIT & PUSH (applied locally, not yet deployed):**
+- `public/styles/global.css` — Added `max-height: calc(100vh - 56px)` and `object-fit: contain` to `.detail-hero img` so portrait/square photos no longer overflow the viewport
+- `V6A-DEVELOPMENT-GUIDE.md` — This file, updated with photo sizing lesson and continuation notes
+
+**TO PUSH FROM YOUR TERMINAL:**
+```bash
+cd ~/Projects/AlbaTull-V6 && git add public/styles/global.css V6A-DEVELOPMENT-GUIDE.md && git commit -m "Cap portrait photo height to viewport — prevents scroll on tall images" && git push origin main
+```
+
+**CONFIRMED WORKING (already deployed):**
+- Two search bars fixed — `.nav-search-mobile { display: none; }` hides mobile search on desktop (commit `a9fcb6a`)
+- Gallery dropdown working on Chrome, Safari, Firefox
+- Mosaic 3D flip working on Chrome, Safari, Firefox (including color reveal)
+- Photo nav arrows — no flash/scroll after repeated clicks
+- Mosaic tiles use `<div>` with `data-href` — no URL preview on hover
+- Mobile nav — hamburger menu with search inside, Gallery dropdown works on touch
+- Experimentations page — shows photos merged from MISC on all code paths
+
+**KNOWN ISSUES TO WATCH AFTER DEPLOY:**
+- Photo sizing fix needs visual verification after push — confirm portrait photos (like Architecture 27, Architecture 5/Eiffel Tower) fit within the viewport without scrolling
+- If the `max-height` makes some images too small on certain screen sizes, consider adjusting the 56px offset or using a percentage-based approach instead
+
+---
+
 ---
 
 ## Stack
@@ -224,3 +250,21 @@ main_end = html.index('</main>')
 print('swapToPhoto after main:', 'swapToPhoto' in html[main_end:])
 "
 ```
+
+---
+
+## Continuation Notes (for next Cowork session)
+
+If picking up from here, the assistant should:
+
+1. **Check if the photo sizing fix has been pushed** — Run `git log --oneline -3` and look for a commit about "portrait photo height" or "viewport". If not present, the commit command above needs to be run first.
+
+2. **Verify photo sizing after deploy** — Open tall portrait photos (Architecture 27, Architecture 5, England 55, Ireland 22) and confirm they fit within the viewport without scrolling. The nav bar is 56px tall.
+
+3. **Nav structure recap** — Two search inputs exist in the HTML: `.nav-search` (desktop, between logo and nav-links) and `.nav-search-mobile` (inside `.nav-links` hamburger menu). The mobile one is hidden on desktop via `display: none`. On mobile (< 768px), the desktop one is hidden and the mobile one shows only when the hamburger menu is open (`.nav-links.is-open .nav-search-mobile { display: block }`).
+
+4. **Image orientation detection** — The `getOrientation()` function in `photo/[slug].astro` parses Sanity's asset `_ref` string to extract dimensions. Format: `image-{hash}-{WxH}-{ext}`. Ratio > 1.2 = landscape, < 0.85 = portrait, else square. This determines the CSS class on `.detail-layout` which controls the page layout.
+
+5. **Three code paths** — Always remember: Sanity, cache, and local. Any feature that touches photo data MUST work across all three. The Experimentations/MISC merge is the canonical example of what goes wrong when you only handle one path.
+
+6. **Commit rules** — NEVER include Claude/Anthropic references. Git config: user.email="albavt92@gmail.com", user.name="Alba Tull". VM cannot push — user runs `git push origin main` from their own terminal.
