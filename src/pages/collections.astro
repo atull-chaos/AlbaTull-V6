@@ -55,7 +55,33 @@ if ((source === 'sanity' || source === 'cache') && rawCats && rawCats.length > 0
   }));
 }
 
-const displayCategories = allCategories.filter(c => !c.parentCategory);
+// ── Custom gallery display order ─────────────────────────────────
+// Defines exact order for the collections page. Only categories
+// in this list are shown — parent categories whose children appear
+// here individually (People, Animals) are excluded automatically.
+const GALLERY_ORDER = [
+  'portraiture',
+  'wildlife',
+  'landscape',
+  'places',
+  'architecture',
+  'botanical',
+  'steelers-portraits',
+  'cars',
+  'music',
+  'misc',
+  'sports',
+];
+
+// Build lookup of ALL categories by slug (including children)
+const catBySlug = {};
+for (const c of allCategories) catBySlug[c.slug] = c;
+
+// Assemble ordered list: only show categories in GALLERY_ORDER
+const displayCategories = [];
+for (const slug of GALLERY_ORDER) {
+  if (catBySlug[slug]) displayCategories.push(catBySlug[slug]);
+}
 
 const totalCount = displayCategories.reduce((sum, c) => {
   if (c.isParent && c.children.length > 0) {

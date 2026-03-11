@@ -274,18 +274,40 @@ if (source === 'cache') {
       </div>
     </div>
 
-    {/* Keyboard arrow navigation */}
+    {/* Keyboard arrow navigation — uses data attributes so a single
+         module-level listener works with Astro ClientRouter */}
     {(navPrev || navNext) && (
-      <script define:vars={{ prevSlug: navPrev?.slug || '', nextSlug: navNext?.slug || '' }}>
-        document.addEventListener('keydown', function(e) {
-          if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-          if (e.key === 'ArrowLeft' && prevSlug) {
-            window.location.href = '/photo/' + prevSlug + '/';
-          } else if (e.key === 'ArrowRight' && nextSlug) {
-            window.location.href = '/photo/' + nextSlug + '/';
-          }
-        });
-      </script>
+      <div id="photoNavData"
+        data-prev={navPrev?.slug || ''}
+        data-next={navNext?.slug || ''}
+        style="display:none" />
     )}
+    <script>
+      // Single listener that reads current page's nav data on each keypress.
+      // Works across View Transition navigations without accumulating listeners.
+      document.addEventListener('keydown', function(e) {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        var navData = document.getElementById('photoNavData');
+        if (!navData) return;
+        var prev = navData.dataset.prev;
+        var next = navData.dataset.next;
+        if (e.key === 'ArrowLeft' && prev) {
+          e.preventDefault();
+          // Use a link click so Astro ClientRouter intercepts it
+          var a = document.createElement('a');
+          a.href = '/photo/' + prev + '/';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        } else if (e.key === 'ArrowRight' && next) {
+          e.preventDefault();
+          var a = document.createElement('a');
+          a.href = '/photo/' + next + '/';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        }
+      });
+    </script>
   </BaseLayout>
 )}

@@ -5,6 +5,8 @@
  * Shared shell: <head>, nav bar, footer, image protection suite.
  * Used by every page. Nav links reflect the current category structure.
  */
+import { ClientRouter } from 'astro:transitions';
+
 interface Props {
   title?: string;
   description?: string;
@@ -36,6 +38,7 @@ const {
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/styles/global.css">
+  <ClientRouter />
 </head>
 <body>
   <!-- Navigation -->
@@ -50,7 +53,7 @@ const {
       <a href="/category/sports/">Sports</a>
       <a href="/category/wildlife/">Wildlife</a>
       <a href="/category/experimentations/">Experimentations</a>
-      <a href="/category/misc/">Archives</a>
+      <a href="/category/misc/">Miscellaneous</a>
       <a href="/about/">About</a>
     </div>
     <button class="nav-mobile-toggle" aria-label="Toggle menu" id="navToggle">
@@ -71,118 +74,116 @@ const {
   <!-- Scripts -->
   <script type="module" src="/scripts/main.js"></script>
   <script>
-    // ── Mobile nav toggle ─────────────────────────────────────────
-    const toggle = document.getElementById('navToggle');
-    if (toggle) {
-      toggle.addEventListener('click', () => {
-        document.getElementById('navLinks').classList.toggle('is-open');
-        toggle.classList.toggle('is-open');
-      });
-    }
-
     // ══════════════════════════════════════════════════════════════
-    // Image Protection Suite — 9-Layer Defense
-    // Prevents casual downloading, right-click saving, and
-    // drag-and-drop theft of copyrighted photography.
+    // Scripts compatible with Astro ClientRouter (View Transitions)
+    // Document-level listeners run once; per-page setup uses
+    // astro:page-load which fires on every navigation.
     // ══════════════════════════════════════════════════════════════
-    (function() {
-      'use strict';
 
-      var PROTECTED = 'img, video, canvas, .mosaic-cell, .detail-hero, .grid-tile, .gallery-tile, .collection-thumb, .featured-link, .photo-grid, .gallery-grid, .flip-card';
+    var PROTECTED = 'img, video, canvas, .mosaic-cell, .detail-hero, .grid-tile, .gallery-tile, .collection-thumb, .featured-link, .photo-grid, .gallery-grid, .flip-card';
 
-      // Layer 1: Right-click prevention on media
-      document.addEventListener('contextmenu', function(e) {
-        if (e.target.tagName === 'IMG' || e.target.tagName === 'VIDEO' ||
-            e.target.tagName === 'CANVAS' || e.target.closest(PROTECTED)) {
+    // ── Document-level listeners (run once, persist across navigations) ──
+
+    // Layer 1: Right-click prevention on media
+    document.addEventListener('contextmenu', function(e) {
+      if (e.target.tagName === 'IMG' || e.target.tagName === 'VIDEO' ||
+          e.target.tagName === 'CANVAS' || e.target.closest(PROTECTED)) {
+        e.preventDefault();
+      }
+    });
+
+    // Layer 2: Drag prevention
+    document.addEventListener('dragstart', function(e) {
+      if (e.target.tagName === 'IMG' || e.target.tagName === 'VIDEO' ||
+          e.target.tagName === 'CANVAS') {
+        e.preventDefault();
+      }
+    });
+
+    // Layer 3: Touch callout prevention (iOS "Save Image")
+    document.addEventListener('touchstart', function(e) {
+      if (e.target.tagName === 'IMG' || e.target.closest(PROTECTED)) {
+        e.target.style.webkitTouchCallout = 'none';
+        e.target.style.webkitUserSelect = 'none';
+      }
+    }, { passive: true });
+
+    // Layer 4: Keyboard shortcut interception
+    document.addEventListener('keydown', function(e) {
+      var ctrl = e.ctrlKey || e.metaKey;
+      if (ctrl && e.key === 's') { e.preventDefault(); }
+      if (ctrl && e.key === 'u') { e.preventDefault(); }
+      if (e.key === 'PrintScreen') { e.preventDefault(); flashProtection(); }
+      if (ctrl && e.shiftKey && e.key === 's') { e.preventDefault(); }
+    });
+
+    // Layer 5: Clipboard protection
+    document.addEventListener('copy', function(e) {
+      var sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        var container = sel.getRangeAt(0).commonAncestorContainer;
+        if (container.nodeType !== 1) container = container.parentElement;
+        if (container && container.closest && container.closest(PROTECTED)) {
           e.preventDefault();
-        }
-      });
-
-      // Layer 2: Drag prevention
-      document.addEventListener('dragstart', function(e) {
-        if (e.target.tagName === 'IMG' || e.target.tagName === 'VIDEO' ||
-            e.target.tagName === 'CANVAS') {
-          e.preventDefault();
-        }
-      });
-
-      // Layer 3: Touch callout prevention (iOS "Save Image")
-      document.addEventListener('touchstart', function(e) {
-        if (e.target.tagName === 'IMG' || e.target.closest(PROTECTED)) {
-          e.target.style.webkitTouchCallout = 'none';
-          e.target.style.webkitUserSelect = 'none';
-        }
-      }, { passive: true });
-
-      // Layer 4: Keyboard shortcut interception
-      document.addEventListener('keydown', function(e) {
-        var ctrl = e.ctrlKey || e.metaKey;
-        if (ctrl && e.key === 's') { e.preventDefault(); }
-        if (ctrl && e.key === 'u') { e.preventDefault(); }
-        if (e.key === 'PrintScreen') { e.preventDefault(); flashProtection(); }
-        if (ctrl && e.shiftKey && e.key === 's') { e.preventDefault(); }
-      });
-
-      // Layer 5: Clipboard protection
-      document.addEventListener('copy', function(e) {
-        var sel = window.getSelection();
-        if (sel && sel.rangeCount > 0) {
-          var container = sel.getRangeAt(0).commonAncestorContainer;
-          if (container.nodeType !== 1) container = container.parentElement;
-          if (container && container.closest && container.closest(PROTECTED)) {
-            e.preventDefault();
-            if (e.clipboardData) {
-              e.clipboardData.setData('text/plain',
-                '\u00a9 Alba Tull Photography \u2014 albatull.com \u2014 All rights reserved.');
-            }
+          if (e.clipboardData) {
+            e.clipboardData.setData('text/plain',
+              '\u00a9 Alba Tull Photography \u2014 albatull.com \u2014 All rights reserved.');
           }
         }
-      });
+      }
+    });
 
-      // Layer 6: Transparent shield overlays
-      function addShields() {
-        document.querySelectorAll('.gallery-tile, .grid-tile, .mosaic-cell, .collection-thumb, .detail-hero')
-          .forEach(function(el) {
-            if (el.querySelector('.img-shield')) return;
-            var shield = document.createElement('div');
-            shield.className = 'img-shield';
-            el.style.position = el.style.position || 'relative';
-            el.appendChild(shield);
-          });
+    // Layer 7: PrintScreen flash disruption
+    var flashEl = null;
+    function flashProtection() {
+      if (!flashEl) {
+        flashEl = document.createElement('div');
+        flashEl.style.cssText = 'position:fixed;inset:0;background:#000;z-index:999999;pointer-events:none;opacity:0;transition:opacity 0.05s;';
+        document.body.appendChild(flashEl);
+      }
+      flashEl.style.opacity = '1';
+      setTimeout(function() { flashEl.style.opacity = '0'; }, 200);
+    }
+
+    // Layer 8: Visibility change detection
+    document.addEventListener('visibilitychange', function() {
+      // Page hidden — user may be using screenshot tool
+    });
+
+    // Layer 9: Prevent image selection
+    document.addEventListener('selectstart', function(e) {
+      if (e.target.tagName === 'IMG' || (e.target.closest && e.target.closest(PROTECTED))) {
+        e.preventDefault();
+      }
+    });
+
+    // ── Per-page setup (runs on every navigation) ────────────────
+
+    // Layer 6: Transparent shield overlays
+    function addShields() {
+      document.querySelectorAll('.gallery-tile, .grid-tile, .mosaic-cell, .collection-thumb, .detail-hero')
+        .forEach(function(el) {
+          if (el.querySelector('.img-shield')) return;
+          var shield = document.createElement('div');
+          shield.className = 'img-shield';
+          el.style.position = el.style.position || 'relative';
+          el.appendChild(shield);
+        });
+    }
+
+    document.addEventListener('astro:page-load', function() {
+      // Mobile nav toggle — re-bind on each navigation
+      var toggle = document.getElementById('navToggle');
+      if (toggle) {
+        toggle.addEventListener('click', function() {
+          document.getElementById('navLinks').classList.toggle('is-open');
+          toggle.classList.toggle('is-open');
+        });
       }
 
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', addShields);
-      } else {
-        addShields();
-      }
-
-      new MutationObserver(addShields).observe(document.body, { childList: true, subtree: true });
-
-      // Layer 7: PrintScreen flash disruption
-      var flashEl = null;
-      function flashProtection() {
-        if (!flashEl) {
-          flashEl = document.createElement('div');
-          flashEl.style.cssText = 'position:fixed;inset:0;background:#000;z-index:999999;pointer-events:none;opacity:0;transition:opacity 0.05s;';
-          document.body.appendChild(flashEl);
-        }
-        flashEl.style.opacity = '1';
-        setTimeout(function() { flashEl.style.opacity = '0'; }, 200);
-      }
-
-      // Layer 8: Visibility change detection
-      document.addEventListener('visibilitychange', function() {
-        // Page hidden — user may be using screenshot tool
-      });
-
-      // Layer 9: Prevent image selection
-      document.addEventListener('selectstart', function(e) {
-        if (e.target.tagName === 'IMG' || (e.target.closest && e.target.closest(PROTECTED))) {
-          e.preventDefault();
-        }
-      });
-    })();
+      // Re-apply shield overlays on new page content
+      addShields();
+    });
   </script>
 </body>
 </html>
