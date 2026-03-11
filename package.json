@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "node scripts/generate-search-index.mjs && astro build",
     "seed": "node seed-cache.mjs",
-    "deploy": "node seed-cache.mjs && rm -rf .astro && astro build",
+    "deploy": "node seed-cache.mjs && rm -rf .astro && node scripts/generate-search-index.mjs && astro build",
     "preview": "astro preview"
   },
   "keywords": [
