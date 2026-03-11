@@ -950,6 +950,8 @@ main {
   width: 100%;
   height: auto;
   display: block;
+  max-height: calc(100vh - 56px);
+  object-fit: contain;
 }
 
 /* Landscape orientation — stacked: full-width image on top, info below */

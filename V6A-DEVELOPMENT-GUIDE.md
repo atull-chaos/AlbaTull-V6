@@ -119,6 +119,21 @@ The `addShields()` selector must be: `.gallery-tile, .grid-tile, .collection-thu
 
 ---
 
+### Photo Detail Sizing (Portrait vs Landscape)
+
+**WHAT WORKS:**
+- Three orientation modes detected from Sanity asset ref dimensions: `landscape` (ratio > 1.2), `portrait` (ratio < 0.85), `square` (0.85–1.2)
+- Landscape images: stacked layout, `max-height: 75vh; object-fit: contain;` — always fits screen
+- Portrait/square images: side-by-side layout (hero 58%/55% width), `max-height: calc(100vh - 56px); object-fit: contain;` — caps image to viewport minus nav bar
+- The `object-fit: contain` ensures no cropping — the full image is always visible
+- Orientation detection: `getOrientation()` in `photo/[slug].astro` parses the Sanity asset `_ref` string (format: `image-{id}-{WxH}-{ext}`)
+
+**WHAT DIDN'T WORK:**
+- Portrait `.detail-hero img` with only `width: 100%; height: auto;` and no max-height — tall portrait images extended far beyond the viewport, forcing users to scroll to see the full photo
+- The 56px offset accounts for the nav bar height; without it the image bottom is clipped behind the fold
+
+---
+
 ## File Architecture
 
 ### Key Files
