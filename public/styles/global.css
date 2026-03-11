@@ -254,9 +254,7 @@ main {
   perspective: 800px;
 }
 
-a.mosaic-cell {
-  color: inherit;
-}
+/* Mosaic cells use div + JS click (no <a> = no browser URL preview) */
 
 /* The inner container that actually rotates */
 .mosaic-flip-inner {
@@ -289,7 +287,7 @@ a.mosaic-cell {
   z-index: 2;
 }
 
-/* Blue veil overlay on front face */
+/* Blue veil overlay on front face — fades out on hover (Firefox fallback) */
 .mosaic-face-front::after {
   content: '';
   position: absolute;
@@ -297,6 +295,12 @@ a.mosaic-cell {
   background: rgba(180, 195, 220, 0.6);
   z-index: 5;
   pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+
+.mosaic-cell:hover .mosaic-face-front::after,
+.mosaic-cell.is-flipped .mosaic-face-front::after {
+  opacity: 0;
 }
 
 /* Back face — full vibrant color (pre-rotated) */
@@ -317,9 +321,15 @@ a.mosaic-cell {
   display: block;
 }
 
-/* Front face image: desaturated, muted */
+/* Front face image: desaturated, muted — transitions to color on hover */
 .mosaic-face-front .mosaic-img {
   filter: saturate(0.1) brightness(1.05) contrast(0.8);
+  transition: filter 0.5s ease;
+}
+
+.mosaic-cell:hover .mosaic-face-front .mosaic-img,
+.mosaic-cell.is-flipped .mosaic-face-front .mosaic-img {
+  filter: saturate(1) brightness(1) contrast(1);
 }
 
 /* Back face image: full vivid color */
@@ -348,7 +358,7 @@ a.mosaic-cell {
   opacity: 1;
 }
 
-/* Video squares in the mosaic — also flip */
+/* Video squares in the mosaic */
 .mosaic-face-front video {
   position: absolute;
   inset: 0;
@@ -358,6 +368,7 @@ a.mosaic-cell {
   display: block;
   z-index: 3;
   filter: saturate(0.1) brightness(1.05) contrast(0.8);
+  transition: filter 0.5s ease;
 }
 
 .mosaic-cell:hover .mosaic-face-front video,

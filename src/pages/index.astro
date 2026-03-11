@@ -113,7 +113,7 @@ videoCellIndices.forEach(pos => { videoCellMap.set(pos, vIdx++); });
         const isVideo = videoIndex !== undefined;
 
         return isVideo ? (
-          <a href={`/photo/${p.slug}/`} class="mosaic-cell mosaic-video-cell" data-index={i} data-slug={p.slug}>
+          <div class="mosaic-cell mosaic-video-cell" data-index={i} data-slug={p.slug} data-href={`/photo/${p.slug}/`}>
             <div class="mosaic-flip-inner">
               <div class="mosaic-face mosaic-face-front">
                 <img class="mosaic-img mosaic-current" src={p.thumb} alt={p.title} loading="lazy" />
@@ -124,9 +124,9 @@ videoCellIndices.forEach(pos => { videoCellMap.set(pos, vIdx++); });
                 <video src={mosaicVideos[videoIndex]} muted loop playsinline autoplay preload="auto"></video>
               </div>
             </div>
-          </a>
+          </div>
         ) : (
-          <a href={`/photo/${p.slug}/`} class="mosaic-cell" data-index={i} data-slug={p.slug}>
+          <div class="mosaic-cell" data-index={i} data-slug={p.slug} data-href={`/photo/${p.slug}/`}>
             <div class="mosaic-flip-inner">
               <div class="mosaic-face mosaic-face-front">
                 <img class="mosaic-img mosaic-current" src={p.thumb} alt={p.title} loading={i < 12 ? 'eager' : 'lazy'} />
@@ -136,7 +136,7 @@ videoCellIndices.forEach(pos => { videoCellMap.set(pos, vIdx++); });
                 <img class="mosaic-img" src={p.img} alt={p.title} loading="lazy" />
               </div>
             </div>
-          </a>
+          </div>
         );
       })}
     </div>
@@ -220,11 +220,9 @@ videoCellIndices.forEach(pos => { videoCellMap.set(pos, vIdx++); });
         cellUrls.set(cell, newUrl);
 
         next.onload = () => {
-          // Update link href
-          if (cell.tagName === 'A') {
-            const slug = thumbToSlug[newUrl];
-            if (slug) cell.href = `/photo/${slug}/`;
-          }
+          // Update data-href for JS navigation
+          const slug = thumbToSlug[newUrl];
+          if (slug) cell.dataset.href = `/photo/${slug}/`;
           // Update back face to higher quality
           const backImg = back ? back.querySelector('.mosaic-img') : null;
           if (backImg) {
@@ -286,5 +284,13 @@ videoCellIndices.forEach(pos => { videoCellMap.set(pos, vIdx++); });
       setTimeout(runCycle, MOSAIC_CONFIG.startDelay);
       setInterval(runCycle, MOSAIC_CONFIG.intervalMs);
     }
+
+    // Mosaic click navigation (uses data-href instead of <a> to avoid URL preview)
+    document.addEventListener('click', function(e) {
+      var cell = e.target.closest('.mosaic-cell');
+      if (cell && cell.dataset.href) {
+        window.location.href = cell.dataset.href;
+      }
+    });
   </script>
 </BaseLayout>
