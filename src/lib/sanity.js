@@ -181,6 +181,23 @@ export async function getPhotosByParentCategory(parentSlug) {
   `, { parentSlug });
 }
 
+/** Fetch all published live videos, ordered by displayOrder. */
+export async function getLiveVideos() {
+  return client.fetch(`
+    *[_type == "liveVideo" && published == true] | order(coalesce(displayOrder, 100) asc, title asc) {
+      _id,
+      title,
+      subtitle,
+      videoFile,
+      videoUrl,
+      poster,
+      posterUrl,
+      flipOffset,
+      displayOrder
+    }
+  `);
+}
+
 /** Fetch the featured "Picture of the Moment" photo. */
 export async function getFeaturedPhoto() {
   return client.fetch(`

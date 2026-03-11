@@ -2,70 +2,133 @@
 /**
  * Live / Motion Page — Alba Tull V6A
  *
- * 8 video flip cards. Both faces show the same video (back offset a few seconds).
- * Scroll flips cards at center, hover/click toggles the flip.
- * Placeholder Pexels videos — user will replace with own footage.
+ * Video flip cards managed through Sanity CMS (liveVideo document type).
+ * Falls back to placeholder Pexels videos if no Sanity videos exist yet.
+ *
+ * Team workflow:
+ *   1. Go to Sanity Studio → "Live Video" in sidebar
+ *   2. Click "+" to create a new video
+ *   3. Upload MP4/WebM (or paste an external URL)
+ *   4. Add poster image, title, subtitle, flip offset
+ *   5. Set displayOrder (lower = appears first) and Published = true
+ *   6. Sanity webhook triggers Netlify rebuild (~4 min)
  */
 import BaseLayout from '../layouts/BaseLayout.astro';
+import { getLiveVideos, urlFor, client } from '../lib/sanity.js';
 
-const videos = [
-  {
-    title: 'Botanical',
-    subtitle: 'Macro Studies',
-    poster: 'https://images.pexels.com/photos/1179229/pexels-photo-1179229.jpeg?auto=compress&w=900',
-    video: 'https://videos.pexels.com/video-files/3864103/3864103-hd_1920_1080_30fps.mp4',
-    offset: 4
-  },
-  {
-    title: 'Ocean',
-    subtitle: 'Tidal Rhythms',
-    poster: 'https://images.pexels.com/photos/1295138/pexels-photo-1295138.jpeg?auto=compress&w=900',
-    video: 'https://videos.pexels.com/video-files/1390942/1390942-uhd_2732_1440_24fps.mp4',
-    offset: 5
-  },
-  {
-    title: 'Urban Flow',
-    subtitle: 'City Rhythms',
-    poster: 'https://images.pexels.com/photos/1563356/pexels-photo-1563356.jpeg?auto=compress&w=900',
-    video: 'https://videos.pexels.com/video-files/5544054/5544054-hd_1920_1080_30fps.mp4',
-    offset: 3
-  },
-  {
-    title: 'Natural Light',
-    subtitle: 'Golden Hour Series',
-    poster: 'https://images.pexels.com/photos/1761279/pexels-photo-1761279.jpeg?auto=compress&w=900',
-    video: 'https://videos.pexels.com/video-files/857251/857251-hd_1920_1080_25fps.mp4',
-    offset: 4
-  },
-  {
-    title: 'Atmosphere',
-    subtitle: 'Mood & Texture',
-    poster: 'https://images.pexels.com/photos/1671325/pexels-photo-1671325.jpeg?auto=compress&w=900',
-    video: 'https://videos.pexels.com/video-files/856974/856974-hd_1920_1080_30fps.mp4',
-    offset: 3
-  },
-  {
-    title: 'Aerial',
-    subtitle: 'Above the Terrain',
-    poster: 'https://images.pexels.com/photos/1252916/pexels-photo-1252916.jpeg?auto=compress&w=900',
-    video: 'https://videos.pexels.com/video-files/1093662/1093662-uhd_2560_1440_30fps.mp4',
-    offset: 5
-  },
-  {
-    title: 'Abstract',
-    subtitle: 'Color in Movement',
-    poster: 'https://images.pexels.com/photos/3075993/pexels-photo-3075993.jpeg?auto=compress&w=900',
-    video: 'https://videos.pexels.com/video-files/854669/854669-hd_1920_1080_30fps.mp4',
-    offset: 4
-  },
-  {
-    title: 'Golden Hour',
-    subtitle: 'Light & Silhouette',
-    poster: 'https://images.pexels.com/photos/36717/amazing-animal-beautiful-beautifull.jpg?auto=compress&w=900',
-    video: 'https://videos.pexels.com/video-files/2257010/2257010-hd_1920_1080_25fps.mp4',
-    offset: 3
+// ── Fetch from Sanity ───────────────────────────────────────────
+let sanityVideos = [];
+let source = 'fallback';
+
+try {
+  const fetched = await getLiveVideos();
+  if (fetched && fetched.length > 0) {
+    sanityVideos = fetched;
+    source = 'sanity';
   }
-];
+} catch (e) {
+  console.warn('[live] Sanity video fetch failed:', e.message);
+}
+
+// ── Resolve video URLs from Sanity data ─────────────────────────
+function resolveVideoUrl(v) {
+  // Prefer external URL, then Sanity-hosted file
+  if (v.videoUrl) return v.videoUrl;
+  if (v.videoFile?.asset?._ref) {
+    // Build Sanity file URL from asset ref
+    // Format: file-{id}-{ext} → https://cdn.sanity.io/files/{projectId}/{dataset}/{id}.{ext}
+    const ref = v.videoFile.asset._ref;
+    const [, id, ext] = ref.match(/^file-(.+)-(\w+)$/) || [];
+    if (id && ext) {
+      const projectId = client.config().projectId;
+      const dataset = client.config().dataset;
+      return `https://cdn.sanity.io/files/${projectId}/${dataset}/${id}.${ext}`;
+    }
+  }
+  return '';
+}
+
+function resolvePosterUrl(v) {
+  // Prefer external URL, then Sanity-hosted image
+  if (v.posterUrl) return v.posterUrl;
+  if (v.poster) return urlFor(v.poster).width(900).quality(80).auto('format').url();
+  return '';
+}
+
+// ── Build final video list ──────────────────────────────────────
+let videos = [];
+
+if (source === 'sanity') {
+  videos = sanityVideos.map(v => ({
+    title:    v.title || 'Untitled',
+    subtitle: v.subtitle || '',
+    video:    resolveVideoUrl(v),
+    poster:   resolvePosterUrl(v),
+    offset:   v.flipOffset ?? 4,
+  })).filter(v => v.video); // Only include videos with a valid URL
+}
+
+// ── Fallback: placeholder Pexels videos ─────────────────────────
+if (videos.length === 0) {
+  videos = [
+    {
+      title: 'Botanical',
+      subtitle: 'Macro Studies',
+      poster: 'https://images.pexels.com/photos/1179229/pexels-photo-1179229.jpeg?auto=compress&w=900',
+      video: 'https://videos.pexels.com/video-files/3864103/3864103-hd_1920_1080_30fps.mp4',
+      offset: 4
+    },
+    {
+      title: 'Ocean',
+      subtitle: 'Tidal Rhythms',
+      poster: 'https://images.pexels.com/photos/1295138/pexels-photo-1295138.jpeg?auto=compress&w=900',
+      video: 'https://videos.pexels.com/video-files/1390942/1390942-uhd_2732_1440_24fps.mp4',
+      offset: 5
+    },
+    {
+      title: 'Urban Flow',
+      subtitle: 'City Rhythms',
+      poster: 'https://images.pexels.com/photos/1563356/pexels-photo-1563356.jpeg?auto=compress&w=900',
+      video: 'https://videos.pexels.com/video-files/5544054/5544054-hd_1920_1080_30fps.mp4',
+      offset: 3
+    },
+    {
+      title: 'Natural Light',
+      subtitle: 'Golden Hour Series',
+      poster: 'https://images.pexels.com/photos/1761279/pexels-photo-1761279.jpeg?auto=compress&w=900',
+      video: 'https://videos.pexels.com/video-files/857251/857251-hd_1920_1080_25fps.mp4',
+      offset: 4
+    },
+    {
+      title: 'Atmosphere',
+      subtitle: 'Mood & Texture',
+      poster: 'https://images.pexels.com/photos/1671325/pexels-photo-1671325.jpeg?auto=compress&w=900',
+      video: 'https://videos.pexels.com/video-files/856974/856974-hd_1920_1080_30fps.mp4',
+      offset: 3
+    },
+    {
+      title: 'Aerial',
+      subtitle: 'Above the Terrain',
+      poster: 'https://images.pexels.com/photos/1252916/pexels-photo-1252916.jpeg?auto=compress&w=900',
+      video: 'https://videos.pexels.com/video-files/1093662/1093662-uhd_2560_1440_30fps.mp4',
+      offset: 5
+    },
+    {
+      title: 'Abstract',
+      subtitle: 'Color in Movement',
+      poster: 'https://images.pexels.com/photos/3075993/pexels-photo-3075993.jpeg?auto=compress&w=900',
+      video: 'https://videos.pexels.com/video-files/854669/854669-hd_1920_1080_30fps.mp4',
+      offset: 4
+    },
+    {
+      title: 'Golden Hour',
+      subtitle: 'Light & Silhouette',
+      poster: 'https://images.pexels.com/photos/36717/amazing-animal-beautiful-beautifull.jpg?auto=compress&w=900',
+      video: 'https://videos.pexels.com/video-files/2257010/2257010-hd_1920_1080_25fps.mp4',
+      offset: 3
+    }
+  ];
+}
 ---
 
 <BaseLayout title="Live — Alba Tull">
@@ -80,14 +143,14 @@ const videos = [
         <div class="flip-card" data-index={i} data-offset={v.offset}>
           <div class="flip-card-inner">
             <div class="flip-card-front">
-              <video src={v.video} poster={v.poster} muted loop playsinline preload="auto"></video>
+              <video src={v.video} poster={v.poster || undefined} muted loop playsinline preload="auto"></video>
               <div class="flip-card-label">
                 <h2>{v.title}</h2>
                 <span>{v.subtitle}</span>
               </div>
             </div>
             <div class="flip-card-back">
-              <video src={v.video} poster={v.poster} muted loop playsinline preload="auto"></video>
+              <video src={v.video} poster={v.poster || undefined} muted loop playsinline preload="auto"></video>
               <div class="flip-card-label">
                 <h2>{v.title}</h2>
                 <span>{v.subtitle}</span>

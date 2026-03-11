@@ -163,6 +163,56 @@ The `addShields()` selector must be: `.gallery-tile, .grid-tile, .collection-thu
 
 ---
 
+### Live Page Videos (Sanity CMS Integration)
+
+**HOW IT WORKS:**
+- Videos are managed via the `liveVideo` document type in Sanity Studio
+- The Live page (`src/pages/live.astro`) fetches published videos from Sanity via `getLiveVideos()` in `sanity.js`
+- If no Sanity videos exist, it falls back to hardcoded Pexels placeholder videos
+- Each video card has: title, subtitle, video source, poster image, flip offset, display order
+
+**SANITY SCHEMA (`liveVideo`):**
+- `title` (string, required) — Card title
+- `subtitle` (string) — Tagline below title
+- `videoFile` (file, MP4/WebM) — Upload directly to Sanity, OR:
+- `videoUrl` (url) — Paste external video URL (S3, Cloudinary, etc.)
+- `poster` (image) — Thumbnail image upload, OR:
+- `posterUrl` (url) — External poster image URL
+- `flipOffset` (number, 0–30) — Seconds offset for back-face video (default: 4)
+- `displayOrder` (number) — Sort position (lower = first, default: 100)
+- `published` (boolean) — Only published videos appear on the Live page
+
+**TEAM WORKFLOW — Uploading Videos:**
+1. Go to Sanity Studio (your-studio-url.sanity.studio)
+2. Click "Live Video" in the left sidebar
+3. Click "+" to create a new video entry
+4. Either upload an MP4/WebM file OR paste an external video URL
+5. Add a poster/thumbnail image (optional — browser shows first frame if omitted)
+6. Set title, subtitle, flip offset, and display order
+7. Make sure "Published" is checked
+8. Click Publish — Sanity webhook triggers Netlify rebuild (~4 min)
+
+**VIDEO URL RESOLUTION (priority order):**
+1. `videoUrl` (external URL) — checked first
+2. `videoFile` (Sanity-hosted) — asset ref converted to CDN URL: `https://cdn.sanity.io/files/{projectId}/{dataset}/{id}.{ext}`
+
+**POSTER URL RESOLUTION (priority order):**
+1. `posterUrl` (external URL) — checked first
+2. `poster` (Sanity image) — processed through `urlFor().width(900).quality(80)`
+
+**SCHEMA FILES (must stay in sync):**
+- `studio/schemas/liveVideo.js` — Studio version (uses `defineType`/`defineField`)
+- `sanity/schemas/liveVideo.js` — Reference copy (plain object format)
+- `studio/schemas/index.js` — Must import and register `liveVideo`
+
+**DEPLOYING THE SCHEMA:**
+The Sanity Studio must be redeployed for the new document type to appear in the dashboard:
+```bash
+cd ~/Projects/AlbaTull-V6/studio && npx sanity login && npx sanity deploy
+```
+
+---
+
 ## File Architecture
 
 ### Key Files
@@ -174,12 +224,15 @@ The `addShields()` selector must be: `.gallery-tile, .grid-tile, .collection-thu
 | `src/pages/collections.astro` | Gallery page with GALLERY_ORDER array |
 | `src/pages/category/[slug].astro` | Category page with subcategory tabs |
 | `src/pages/photo/[slug].astro` | Photo detail page with prev/next nav data |
-| `src/lib/sanity.js` | Sanity client, GROQ queries, cached fetch |
+| `src/pages/live.astro` | Live/Motion page — video flip cards from Sanity (fallback to Pexels) |
+| `src/lib/sanity.js` | Sanity client, GROQ queries, cached fetch, `getLiveVideos()` |
 | `src/lib/sanity-cache.js` | Read/write .sanity-cache.json |
 | `public/styles/global.css` | All CSS (single file) |
 | `public/gallery-order.html` | Drag-and-drop gallery ordering tool |
 | `scripts/generate-search-index.mjs` | Prebuild script for search-index.json |
 | `seed-cache.mjs` | Seeds displayOrder values in Sanity |
+| `studio/schemas/liveVideo.js` | Sanity schema for Live Video document type |
+| `studio/schemas/index.js` | Registers all Sanity schema types |
 
 ### Build Pipeline
 
