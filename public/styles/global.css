@@ -1495,7 +1495,7 @@ a.mosaic-cell {
 .nav-search {
   flex-shrink: 0;
   position: relative;
-  margin-right: 12px;
+  margin-right: 32px;
 }
 
 .search-wrapper {
