@@ -6,12 +6,12 @@
 ## Current Status & What Needs Pushing
 
 **READY TO COMMIT & PUSH (applied locally, not yet deployed):**
-- `public/styles/global.css` — Added `max-height: calc(100vh - 56px)` and `object-fit: contain` to `.detail-hero img` so portrait/square photos no longer overflow the viewport
-- `V6A-DEVELOPMENT-GUIDE.md` — This file, updated with photo sizing lesson and continuation notes
+- `public/styles/global.css` — Portrait photo sizing v2: added `max-height` + `overflow: hidden` to `.detail-hero` container AND preserved `max-height` + `object-fit: contain` in the 1024px media query override
+- `V6A-DEVELOPMENT-GUIDE.md` — This file, fully updated
 
 **TO PUSH FROM YOUR TERMINAL:**
 ```bash
-cd ~/Projects/AlbaTull-V6 && git add public/styles/global.css V6A-DEVELOPMENT-GUIDE.md && git commit -m "Cap portrait photo height to viewport — prevents scroll on tall images" && git push origin main
+cd ~/Projects/AlbaTull-V6 && git add public/styles/global.css V6A-DEVELOPMENT-GUIDE.md && git commit -m "Fix portrait photo overflow — constrain hero container and preserve max-height in tablet breakpoint" && git push origin main
 ```
 
 **CONFIRMED WORKING (already deployed):**
@@ -24,7 +24,7 @@ cd ~/Projects/AlbaTull-V6 && git add public/styles/global.css V6A-DEVELOPMENT-GU
 - Experimentations page — shows photos merged from MISC on all code paths
 
 **KNOWN ISSUES TO WATCH AFTER DEPLOY:**
-- Photo sizing fix needs visual verification after push — confirm portrait photos (like Architecture 27, Architecture 5/Eiffel Tower) fit within the viewport without scrolling
+- Photo sizing v2 fix needs visual verification — confirm portrait photos (Architecture 27, Architecture 5/Eiffel Tower, England 55, Ireland 22) fit within the viewport without scrolling
 - If the `max-height` makes some images too small on certain screen sizes, consider adjusting the 56px offset or using a percentage-based approach instead
 
 ---
@@ -150,12 +150,15 @@ The `addShields()` selector must be: `.gallery-tile, .grid-tile, .collection-thu
 **WHAT WORKS:**
 - Three orientation modes detected from Sanity asset ref dimensions: `landscape` (ratio > 1.2), `portrait` (ratio < 0.85), `square` (0.85–1.2)
 - Landscape images: stacked layout, `max-height: 75vh; object-fit: contain;` — always fits screen
-- Portrait/square images: side-by-side layout (hero 58%/55% width), `max-height: calc(100vh - 56px); object-fit: contain;` — caps image to viewport minus nav bar
+- Portrait/square images: BOTH the `.detail-hero` container AND `.detail-hero img` need `max-height: calc(100vh - 56px)`. The container also needs `overflow: hidden`. The image needs `object-fit: contain`.
 - The `object-fit: contain` ensures no cropping — the full image is always visible
 - Orientation detection: `getOrientation()` in `photo/[slug].astro` parses the Sanity asset `_ref` string (format: `image-{id}-{WxH}-{ext}`)
+- The `@media (max-width: 1024px)` breakpoint ALSO needs `max-height` and `object-fit: contain` on `.detail-hero img` — without it, the tablet/responsive override resets `height: auto` and loses the constraint
 
 **WHAT DIDN'T WORK:**
 - Portrait `.detail-hero img` with only `width: 100%; height: auto;` and no max-height — tall portrait images extended far beyond the viewport, forcing users to scroll to see the full photo
+- Adding `max-height` only to `.detail-hero img` without constraining the `.detail-hero` container — the flex child (`flex: 0 0 58%`) could still grow in height, and `height: auto` on the img could override `max-height` in some layout contexts
+- Missing `max-height` in the `@media (max-width: 1024px)` breakpoint — the responsive rule at line ~1842 reset `.detail-hero img` to `height: auto` without preserving the viewport cap, so the fix only worked on screens wider than 1024px
 - The 56px offset accounts for the nav bar height; without it the image bottom is clipped behind the fold
 
 ---

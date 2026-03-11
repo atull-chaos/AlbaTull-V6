@@ -944,6 +944,8 @@ main {
   flex: 0 0 58%;
   position: relative;
   background: #f0efec;
+  max-height: calc(100vh - 56px);
+  overflow: hidden;
 }
 
 .detail-hero img {
@@ -1842,6 +1844,8 @@ main {
   .detail-hero img {
     width: 100%;
     height: auto;
+    max-height: calc(100vh - 56px);
+    object-fit: contain;
   }
   .detail-sidebar {
     width: 100%;
