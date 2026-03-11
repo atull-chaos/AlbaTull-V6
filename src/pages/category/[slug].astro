@@ -41,8 +41,8 @@ let tabs = [];
 let parentSlug = null;
 let parentName = null;
 
-// Special case: Experimentations includes Miscellaneous as a subcollection
-const EXPERIMENTATIONS_CHILDREN = ['misc'];
+// Special case: Experimentations absorbs Miscellaneous photos (no subcategories)
+const EXPERIMENTATIONS_EXTRAS = ['misc'];
 const isExperimentations = slug === 'experimentations';
 
 if (isParent && children.length > 0) {
@@ -51,14 +51,6 @@ if (isParent && children.length > 0) {
   tabs = [
     { name: 'All', slug: slug, active: true },
     ...children.map(c => ({ name: c.name, slug: c.slug, active: false }))
-  ];
-} else if (isExperimentations) {
-  // Treat Experimentations as a virtual parent with MISC as child
-  parentSlug = slug;
-  parentName = categoryName;
-  tabs = [
-    { name: 'All', slug: slug, active: true },
-    { name: 'Miscellaneous', slug: 'misc', active: false }
   ];
 } else if (parentCategory) {
   parentSlug = parentCategory.slug;
@@ -83,7 +75,7 @@ if (isParent && children.length > 0) {
   children.forEach(c => includeSlugs.push(c.slug));
 }
 if (isExperimentations) {
-  EXPERIMENTATIONS_CHILDREN.forEach(s => includeSlugs.push(s));
+  EXPERIMENTATIONS_EXTRAS.forEach(s => includeSlugs.push(s));
 }
 
 if (source === 'cache') {
