@@ -283,8 +283,11 @@ main {
 }
 
 /* Front face — muted/desaturated with blue veil */
+/* transform: rotateX(0deg) is required for Firefox — without an explicit */
+/* transform, Firefox ignores backface-visibility:hidden on this element  */
 .mosaic-face-front {
   z-index: 2;
+  transform: rotateX(0deg);
 }
 
 /* Blue veil overlay on front face — fades out on hover (Firefox fallback) */
@@ -1894,6 +1897,14 @@ main {
   }
   .nav-mobile-toggle {
     display: flex;
+    margin-left: auto;
+  }
+  /* Hide search bar from nav bar on mobile — show inside hamburger menu */
+  .nav-search {
+    display: none;
+  }
+  .nav-links.is-open .nav-search-mobile {
+    display: block;
   }
   /* Mobile dropdown: inline expand instead of absolute flyout */
   .nav-dropdown {
@@ -1922,17 +1933,35 @@ main {
     margin-bottom: 0;
     padding-bottom: 6px;
   }
-  .nav-search {
-    order: -1;
-    margin-left: 0;
+  /* Mobile search inside hamburger */
+  .nav-search-mobile {
+    display: none;
     width: 100%;
-    padding: 0 20px 12px;
+    position: relative;
   }
-  .search-input {
-    width: 100%;
+  .nav-links.is-open .nav-search-mobile {
+    display: block;
   }
-  .search-input:focus {
+  .mobile-search-input {
     width: 100%;
+    padding: 8px 12px;
+    font-size: 14px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: var(--nav-font);
+  }
+  .mobile-search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-top: none;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1002;
+    display: none;
   }
   .search-results {
     width: calc(100vw - 40px);

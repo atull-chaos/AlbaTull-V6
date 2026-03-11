@@ -56,6 +56,12 @@ const {
       <span></span><span></span><span></span>
     </button>
     <div class="nav-links" id="navLinks">
+      <!-- Mobile search (inside hamburger menu) -->
+      <div class="nav-search-mobile">
+        <input type="text" class="search-input mobile-search-input"
+          placeholder="Search photos..." autocomplete="off" spellcheck="false" />
+        <div class="search-results mobile-search-results"></div>
+      </div>
       <div class="nav-dropdown" id="galleryDropdown">
         <a href="/collections/" class="nav-dropdown-trigger">Gallery <span class="nav-dropdown-arrow">&#9662;</span></a>
         <div class="nav-dropdown-menu">
@@ -423,9 +429,9 @@ const {
       return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    var input = document.getElementById('searchInput');
-    var resultsEl = document.getElementById('searchResults');
-    if (input && resultsEl) {
+    // Bind search to both desktop and mobile inputs
+    function bindSearch(input, resultsEl) {
+      if (!input || !resultsEl) return;
       var debounceTimer = null;
       input.addEventListener('input', function() {
         clearTimeout(debounceTimer);
@@ -442,25 +448,30 @@ const {
           });
         }, 150);
       });
-
-      document.addEventListener('click', function(e) {
-        var searchWrap = document.querySelector('.search-wrapper');
-        if (searchWrap && !searchWrap.contains(e.target)) {
-          resultsEl.classList.remove('is-open');
-        }
-      });
-
       input.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
           resultsEl.classList.remove('is-open');
           input.blur();
         }
       });
-
       input.addEventListener('focus', function() {
         loadSearchIndex(function() {});
       });
     }
+
+    // Desktop search
+    bindSearch(document.getElementById('searchInput'), document.getElementById('searchResults'));
+    // Mobile search
+    bindSearch(document.querySelector('.mobile-search-input'), document.querySelector('.mobile-search-results'));
+
+    // Close results when clicking outside
+    document.addEventListener('click', function(e) {
+      document.querySelectorAll('.search-results, .mobile-search-results').forEach(function(el) {
+        if (!el.parentElement.contains(e.target)) {
+          el.classList.remove('is-open');
+        }
+      });
+    });
   </script>
 </body>
 </html>
