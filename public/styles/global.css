@@ -126,6 +126,11 @@ html, body {
   opacity: 0.4;
 }
 
+/* Hide mobile search on desktop — only visible inside hamburger on mobile */
+.nav-search-mobile {
+  display: none;
+}
+
 /* ── Gallery Dropdown ────────────────────────────────────────── */
 .nav-dropdown {
   position: relative;
