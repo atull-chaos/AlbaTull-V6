@@ -7,7 +7,7 @@
  * Photos sorted by displayOrder (pinned first, then sequential).
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { fetchAllWithCache, getPhotosByCategory as getSanityPhotosByCategory, getPhotosByParentCategory as getSanityPhotosByParentCategory, urlFor } from '../../lib/sanity.js';
+import { fetchAllWithCache, getPhotosByCategory as getSanityPhotosByCategory, getPhotosByParentCategory as getSanityPhotosByParentCategory, getPhotosByMultipleCategories as getSanityPhotosByMultipleCategories, urlFor } from '../../lib/sanity.js';
 import { getCategories as getLocalCategories, getPhotosByCategory as getLocalPhotosByCategory } from '../../data/photos.js';
 
 // ── Generate static paths ───────────────────────────────────────
@@ -116,9 +116,15 @@ if (source === 'cache') {
   }
 } else if (source === 'sanity') {
   try {
-    const sanityPhotos = (isParent && children.length > 0)
-      ? await getSanityPhotosByParentCategory(slug)
-      : await getSanityPhotosByCategory(slug);
+    let sanityPhotos;
+    if (isParent && children.length > 0) {
+      sanityPhotos = await getSanityPhotosByParentCategory(slug);
+    } else if (includeSlugs.length > 1) {
+      // Experimentations or other merged categories — fetch from all slugs
+      sanityPhotos = await getSanityPhotosByMultipleCategories(includeSlugs);
+    } else {
+      sanityPhotos = await getSanityPhotosByCategory(slug);
+    }
 
     photos = sanityPhotos.map(p => ({
       id:    p._id,

@@ -136,6 +136,28 @@ export async function getPhotosByCategory(categorySlug) {
   `, { categorySlug });
 }
 
+/** Fetch photos matching ANY of several category slugs. Used for merged categories. */
+export async function getPhotosByMultipleCategories(categorySlugs) {
+  return client.fetch(`
+    *[_type == "photo" && (
+      category->slug.current in $categorySlugs ||
+      count((additionalCategories[]->slug.current)[@ in $categorySlugs]) > 0
+    )] | order(coalesce(displayOrder, 9999) asc, title asc) {
+      _id,
+      title,
+      "slug": slug.current,
+      description,
+      image,
+      audio,
+      video,
+      featured,
+      displayOrder,
+      category->{ name, "slug": slug.current },
+      "additionalCategories": additionalCategories[]->{ name, "slug": slug.current }
+    }
+  `, { categorySlugs });
+}
+
 /** Fetch photos for a parent category (aggregates all children). */
 export async function getPhotosByParentCategory(parentSlug) {
   return client.fetch(`

@@ -69,13 +69,27 @@ const GALLERY_ORDER = [
   'steelers-portraits',
   'cars',
   'music',
-  'misc',
+  'experimentations',
   'sports',
 ];
 
 // Build lookup of ALL categories by slug (including children)
 const catBySlug = {};
 for (const c of allCategories) catBySlug[c.slug] = c;
+
+// Merge MISC into Experimentations: add MISC photo count and previews
+if (catBySlug['experimentations'] && catBySlug['misc']) {
+  const exp = catBySlug['experimentations'];
+  const misc = catBySlug['misc'];
+  exp.count = (exp.count || 0) + (misc.count || 0);
+  if (exp.photos.length === 0) {
+    exp.photos = misc.photos;
+  } else {
+    exp.photos = [...exp.photos, ...misc.photos]
+      .sort((a, b) => (a.displayOrder || 9999) - (b.displayOrder || 9999))
+      .slice(0, 12);
+  }
+}
 
 // Assemble ordered list: only show categories in GALLERY_ORDER
 const displayCategories = [];
