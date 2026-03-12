@@ -140,17 +140,17 @@ if (videos.length === 0) {
 
     <div class="flip-cards-container">
       {videos.map((v, i) => (
-        <div class="flip-card" data-index={i} data-offset={v.offset}>
+        <div class="flip-card" data-index={i} data-offset={v.offset} data-video-url={v.video}>
           <div class="flip-card-inner">
             <div class="flip-card-front">
-              <video src={v.video} poster={v.poster || undefined} muted loop playsinline preload="auto"></video>
+              <video poster={v.poster || undefined} muted loop playsinline preload="none"></video>
               <div class="flip-card-label">
                 <h2>{v.title}</h2>
                 <span>{v.subtitle}</span>
               </div>
             </div>
             <div class="flip-card-back">
-              <video src={v.video} poster={v.poster || undefined} muted loop playsinline preload="auto"></video>
+              <video poster={v.poster || undefined} muted loop playsinline preload="none"></video>
               <div class="flip-card-label">
                 <h2>{v.title}</h2>
                 <span>{v.subtitle}</span>
@@ -163,31 +163,114 @@ if (videos.length === 0) {
   </div>
 
   <script>
-    // Flip Card Controller — scroll flips at center, hover/click toggles
+    // ═══════════════════════════════════════════════════════════════
+    // Flip Card Controller — Lazy Loading + Scroll Flip + Hover/Click
+    //
+    // Videos start with no src (preload="none"). Three observers:
+    //   1. lazyObserver  — loads video src when card is ~1 viewport away,
+    //                      unloads when card scrolls far off-screen
+    //   2. viewObserver  — plays/pauses videos when in/out of viewport
+    //   3. flipObserver  — flips card when it reaches center of viewport
+    //
+    // This supports 30+ cards without choking page load.
+    // ═══════════════════════════════════════════════════════════════
+
     const cards = document.querySelectorAll('.flip-card');
 
-    // Set back-video time offset
-    cards.forEach(card => {
-      const backVideo = card.querySelector('.flip-card-back video');
-      const offset = parseInt(card.dataset.offset) || 4;
-      if (backVideo) {
-        backVideo.addEventListener('loadedmetadata', () => {
+    // ── Helper: load a card's videos ──────────────────────────────
+    function loadCardVideos(card) {
+      if (card.dataset.loaded === 'true') return;
+      var url = card.dataset.videoUrl;
+      if (!url) return;
+
+      var frontVideo = card.querySelector('.flip-card-front video');
+      var backVideo = card.querySelector('.flip-card-back video');
+
+      if (frontVideo && !frontVideo.src) {
+        frontVideo.src = url;
+        frontVideo.preload = 'auto';
+        frontVideo.load();
+      }
+      if (backVideo && !backVideo.src) {
+        backVideo.src = url;
+        backVideo.preload = 'auto';
+        backVideo.load();
+
+        // Set back-video time offset once metadata arrives
+        var offset = parseInt(card.dataset.offset) || 4;
+        backVideo.addEventListener('loadedmetadata', function() {
           backVideo.currentTime = Math.min(offset, backVideo.duration * 0.4);
         }, { once: true });
       }
+
+      card.dataset.loaded = 'true';
+    }
+
+    // ── Helper: unload a card's videos (free memory) ──────────────
+    function unloadCardVideos(card) {
+      if (card.dataset.loaded !== 'true') return;
+      // Don't unload if user is hovering or card is in view
+      if (card.dataset.inView === 'true') return;
+
+      var frontVideo = card.querySelector('.flip-card-front video');
+      var backVideo = card.querySelector('.flip-card-back video');
+
+      if (frontVideo) {
+        frontVideo.pause();
+        frontVideo.removeAttribute('src');
+        frontVideo.load(); // resets the element, releases buffered data
+      }
+      if (backVideo) {
+        backVideo.pause();
+        backVideo.removeAttribute('src');
+        backVideo.load();
+      }
+
+      card.dataset.loaded = 'false';
+    }
+
+    // ── 1. Lazy Load Observer ─────────────────────────────────────
+    // Loads videos when card is within ~1 viewport distance.
+    // Unloads when card scrolls more than ~2 viewports away.
+    var lazyObserver = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          loadCardVideos(entry.target);
+        } else {
+          // Only unload if truly far away (the large negative rootMargin
+          // means this fires when the card is >2 viewports off-screen)
+        }
+      });
+    }, {
+      threshold: 0,
+      rootMargin: '100% 0px'  // load when within 1 full viewport height
     });
 
-    // Viewport visibility — play/pause both videos
-    const viewObserver = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        const card = entry.target;
-        const frontVideo = card.querySelector('.flip-card-front video');
-        const backVideo = card.querySelector('.flip-card-back video');
+    // Separate observer for unloading — fires when card is far away
+    var unloadObserver = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (!entry.isIntersecting) {
+          unloadCardVideos(entry.target);
+        }
+      });
+    }, {
+      threshold: 0,
+      rootMargin: '200% 0px'  // unload when >2 viewports away
+    });
+
+    // ── 2. Viewport Visibility — play/pause ───────────────────────
+    var viewObserver = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        var card = entry.target;
+        var frontVideo = card.querySelector('.flip-card-front video');
+        var backVideo = card.querySelector('.flip-card-back video');
 
         if (entry.isIntersecting) {
           card.dataset.inView = 'true';
-          if (frontVideo) frontVideo.play().catch(() => {});
-          if (backVideo) backVideo.play().catch(() => {});
+          // Ensure videos are loaded before playing
+          loadCardVideos(card);
+          if (frontVideo && frontVideo.src) frontVideo.play().catch(function() {});
+          if (backVideo && backVideo.src) backVideo.play().catch(function() {});
         } else {
           card.dataset.inView = 'false';
           if (frontVideo) frontVideo.pause();
@@ -198,10 +281,10 @@ if (videos.length === 0) {
       });
     }, { threshold: [0, 0.1], rootMargin: '100px 0px' });
 
-    // Scroll flip: flip when card reaches center
-    const flipObserver = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        const card = entry.target;
+    // ── 3. Scroll Flip — flip when card reaches center ────────────
+    var flipObserver = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        var card = entry.target;
         if (entry.isIntersecting && entry.intersectionRatio >= 0.35) {
           if (card.dataset.userToggled !== 'true') {
             card.classList.add('is-flipped');
@@ -217,24 +300,28 @@ if (videos.length === 0) {
       });
     }, { threshold: [0, 0.15, 0.35, 0.6], rootMargin: '-10% 0px -10% 0px' });
 
+    // ── Toggle flip ───────────────────────────────────────────────
     function toggleFlip(card) {
       card.dataset.userToggled = 'true';
       card.classList.toggle('is-flipped');
     }
 
-    cards.forEach(card => {
+    // ── Setup each card ───────────────────────────────────────────
+    cards.forEach(function(card) {
+      lazyObserver.observe(card);
+      unloadObserver.observe(card);
       viewObserver.observe(card);
       flipObserver.observe(card);
 
-      card.addEventListener('click', () => toggleFlip(card));
-      card.addEventListener('mouseenter', () => toggleFlip(card));
+      card.addEventListener('click', function() { toggleFlip(card); });
+      card.addEventListener('mouseenter', function() { toggleFlip(card); });
 
-      card.addEventListener('mouseleave', () => {
+      card.addEventListener('mouseleave', function() {
         card.dataset.userToggled = '';
-        const rect = card.getBoundingClientRect();
-        const vh = window.innerHeight;
-        const centerY = rect.top + rect.height / 2;
-        const isCenter = centerY > vh * 0.3 && centerY < vh * 0.7;
+        var rect = card.getBoundingClientRect();
+        var vh = window.innerHeight;
+        var centerY = rect.top + rect.height / 2;
+        var isCenter = centerY > vh * 0.3 && centerY < vh * 0.7;
         if (isCenter) {
           card.classList.add('is-flipped');
         } else {
