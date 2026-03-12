@@ -111,10 +111,17 @@ The `addShields()` selector must be: `.gallery-tile, .grid-tile, .collection-thu
 ### Photo Navigation (Prev/Next Arrows)
 
 **WHAT WORKS:**
-- Custom in-place content swap: intercept arrow clicks, fetch next page via `fetch()`, extract `<main>` content, swap `innerHTML`, update URL via `history.pushState()`
+- Custom in-place content swap with **crossfade transition**: intercept arrow clicks, fade out current `<main>` (180ms), fetch + parse next page, preload hero image, swap `innerHTML` while invisible, fade in (180ms)
 - Script lives in `BaseLayout.astro` AFTER `</main>` tag — never inside `<main>`
+- CSS transition injected via JS: `main { transition: opacity 180ms ease; } main.nav-fading { opacity: 0; }`
+- Hero image preloading: before revealing new content, creates `new Image()` with the hero src and waits for `onload` (2s safety timeout)
+- Neighbor preloading: on each photo load, preloads both the HTML AND the hero image for prev/next photos, so the next arrow click is near-instant
+- `preloadHeroFromCache()` uses regex to extract the hero image src from cached HTML without parsing the DOM
+- The fade-out starts immediately when the user clicks (even before fetch completes for uncached pages), so the transition feels instant
+- Page cache (`pageCache` object) stores fetched HTML to avoid re-fetching
 
 **WHAT DIDN'T WORK:**
+- **Instant innerHTML swap (no transition)** — Caused a jarring flash where the gallery skeleton and related shots grid appeared before the hero image loaded. The more content on the detail page, the worse the flash.
 - **Astro ClientRouter (View Transitions)** — Made the flash WORSE. It intercepted all `<a>` clicks before custom handlers could process them, and its DOM teardown/rebuild caused the gallery flash. Was added then completely removed.
 - **Script inside `<main>`** — When the swap replaced `currentMain.innerHTML`, the `<script is:inline>` tag was re-injected and re-executed, creating duplicate event listeners. After ~5 swaps, multiple handlers would fire and one wouldn't `preventDefault` fast enough, causing browser navigation (gallery flash). Fix: move script outside `<main>`.
 - **`<script>` without `is:inline`** — Astro silently strips non-inline scripts inside conditional JSX during bundling. The script tag must have `is:inline` directive.

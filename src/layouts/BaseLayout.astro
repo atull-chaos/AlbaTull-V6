@@ -92,7 +92,7 @@ const {
     <slot />
   </main>
 
-  <!-- Seamless Photo Navigation (outside <main> so it survives content swaps) -->
+  <!-- Seamless Photo Navigation with Crossfade (outside <main> so it survives content swaps) -->
   <script is:inline>
     (function() {
       // Guard: only initialize once per page load
@@ -101,6 +101,12 @@ const {
 
       var navigating = false;
       var pageCache = {};
+      var FADE_MS = 180; // Crossfade duration (ms)
+
+      // Inject transition styles once
+      var styleEl = document.createElement('style');
+      styleEl.textContent = 'main{transition:opacity ' + FADE_MS + 'ms ease;}main.nav-fading{opacity:0;}';
+      document.head.appendChild(styleEl);
 
       function isPhotoUrl(url) {
         return /\/photo\/[^/]+\/?$/.test(url);
@@ -116,6 +122,10 @@ const {
           return;
         }
 
+        // Start fade-out immediately while fetching
+        var currentMain = document.querySelector('main');
+        if (currentMain) currentMain.classList.add('nav-fading');
+
         fetch(href)
           .then(function(r) { return r.text(); })
           .then(function(html) {
@@ -124,6 +134,7 @@ const {
           })
           .catch(function() {
             navigating = false;
+            if (currentMain) currentMain.classList.remove('nav-fading');
             window.location.href = href;
           });
       }
@@ -135,24 +146,55 @@ const {
         var newTitle = doc.querySelector('title');
         var currentMain = document.querySelector('main');
 
-        if (newMain && currentMain) {
-          // Strip any <script> tags from the new content to prevent re-execution
-          var scripts = newMain.querySelectorAll('script');
-          scripts.forEach(function(s) { s.remove(); });
+        if (!newMain || !currentMain) {
+          window.location.href = href;
+          navigating = false;
+          return;
+        }
 
+        // Strip any <script> tags from the new content to prevent re-execution
+        var scripts = newMain.querySelectorAll('script');
+        scripts.forEach(function(s) { s.remove(); });
+
+        // Find the hero image URL in the new content to preload it
+        var newHeroImg = newMain.querySelector('.detail-hero img');
+        var heroSrc = newHeroImg ? newHeroImg.getAttribute('src') : null;
+
+        // Step 1: Fade out current content
+        currentMain.classList.add('nav-fading');
+
+        function performSwap() {
+          // Step 2: Swap content while invisible
           currentMain.innerHTML = newMain.innerHTML;
-
           if (newTitle) document.title = newTitle.textContent;
           history.pushState(null, '', href);
           window.scrollTo(0, 0);
-
           if (typeof addShields === 'function') addShields();
-        } else {
-          window.location.href = href;
-        }
-        navigating = false;
 
-        preloadNeighbors();
+          // Step 3: Fade in new content
+          // Force a reflow so the browser registers opacity:0 before transitioning to 1
+          void currentMain.offsetHeight;
+          currentMain.classList.remove('nav-fading');
+
+          navigating = false;
+          preloadNeighbors();
+        }
+
+        // Wait for fade-out to finish, then preload hero image before revealing
+        setTimeout(function() {
+          if (heroSrc) {
+            var preload = new Image();
+            preload.onload = performSwap;
+            preload.onerror = performSwap; // Still swap even if image fails
+            preload.src = heroSrc;
+            // Safety timeout: don't wait more than 2s for the image
+            setTimeout(function() {
+              if (navigating) performSwap();
+            }, 2000);
+          } else {
+            performSwap();
+          }
+        }, FADE_MS);
       }
 
       function preloadNeighbors() {
@@ -160,15 +202,31 @@ const {
         if (!navData) return;
         var prev = navData.dataset.prev;
         var next = navData.dataset.next;
-        if (next && !pageCache['/photo/' + next + '/']) {
-          fetch('/photo/' + next + '/').then(function(r) { return r.text(); })
-            .then(function(html) { pageCache['/photo/' + next + '/'] = html; })
+
+        // Preload both the HTML and the hero images for neighboring photos
+        [next, prev].forEach(function(slug) {
+          if (!slug) return;
+          var url = '/photo/' + slug + '/';
+          if (pageCache[url]) {
+            // Already cached HTML — also preload the hero image
+            preloadHeroFromCache(pageCache[url]);
+            return;
+          }
+          fetch(url).then(function(r) { return r.text(); })
+            .then(function(html) {
+              pageCache[url] = html;
+              preloadHeroFromCache(html);
+            })
             .catch(function() {});
-        }
-        if (prev && !pageCache['/photo/' + prev + '/']) {
-          fetch('/photo/' + prev + '/').then(function(r) { return r.text(); })
-            .then(function(html) { pageCache['/photo/' + prev + '/'] = html; })
-            .catch(function() {});
+        });
+      }
+
+      // Preload the hero image from cached HTML so it's instant on swap
+      function preloadHeroFromCache(html) {
+        var match = html.match(/<div class="detail-hero">\s*<img[^>]+src="([^"]+)"/);
+        if (match && match[1]) {
+          var img = new Image();
+          img.src = match[1];
         }
       }
 
