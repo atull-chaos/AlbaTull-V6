@@ -77,7 +77,7 @@ if (source === 'cache') {
         id:    cached._id,
         title: cached.title || 'Untitled',
         slug:  cached.slug,
-        img:   urlFor(cached.image).width(900).quality(65).auto('format').url(),
+        img:   urlFor(cached.image).width(1800).quality(80).auto('format').url(),
         desc:  cached.description || '',
         cat:   cached.category?.name || 'Uncategorized',
         audio: cached.audio?.asset?._ref || null
@@ -91,7 +91,7 @@ if (source === 'cache') {
         .filter(p => p.category?.slug === categorySlug && p.slug !== slug && p.image)
         .map(r => ({
           id: r._id, title: r.title || 'Untitled', slug: r.slug,
-          img: urlFor(r.image).width(600).quality(80).auto('format').url(),
+          img: urlFor(r.image).width(800).quality(80).auto('format').url(),
           cat: r.category?.name || photo.cat
         }));
     }
@@ -106,7 +106,7 @@ if (source === 'cache') {
         id:    sp._id,
         title: sp.title || 'Untitled',
         slug:  sp.slug,
-        img:   urlFor(sp.image).width(900).quality(65).auto('format').url(),
+        img:   urlFor(sp.image).width(1800).quality(80).auto('format').url(),
         desc:  sp.description || '',
         cat:   sp.category?.name || 'Uncategorized',
         audio: sp.audio?.asset?._ref || null
@@ -118,7 +118,7 @@ if (source === 'cache') {
       if (sp.related && sp.related.length > 0) {
         related = sp.related.filter(r => r.image).map(r => ({
           id: r._id, title: r.title || 'Untitled', slug: r.slug,
-          img: urlFor(r.image).width(600).quality(80).auto('format').url(),
+          img: urlFor(r.image).width(800).quality(80).auto('format').url(),
           cat: r.category?.name || photo.cat
         }));
       }

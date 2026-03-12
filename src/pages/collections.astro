@@ -32,7 +32,7 @@ if ((source === 'sanity' || source === 'cache') && rawCats && rawCats.length > 0
         title: p.title || 'Untitled',
         slug:  p.slug,
         displayOrder: p.displayOrder || 9999,
-        img:   urlFor(p.image).width(400).height(400).fit('crop').quality(60).auto('format').url()
+        img:   urlFor(p.image).width(600).height(600).fit('crop').quality(70).auto('format').url()
       }))
   }));
 

@@ -28,8 +28,8 @@ if ((source === 'sanity' || source === 'cache') && rawPhotos) {
     cat:     p.category?.name || 'Uncategorized',
     catSlug: p.category?.slug || '',
     slug:    p.slug || p._id,
-    img:     p.image ? urlFor(p.image).width(600).quality(65).auto('format').url() : '',
-    thumb:   p.image ? urlFor(p.image).width(200).height(200).fit('crop').quality(55).auto('format').url() : '',
+    img:     p.image ? urlFor(p.image).width(800).quality(75).auto('format').url() : '',
+    thumb:   p.image ? urlFor(p.image).width(300).height(300).fit('crop').quality(65).auto('format').url() : '',
     desc:    p.description || ''
   })).filter(p => p.img);
 
@@ -43,7 +43,7 @@ if ((source === 'sanity' || source === 'cache') && rawPhotos) {
     featuredPhoto = {
       title: rawFeatured.title || 'Untitled',
       cat:   rawFeatured.category?.name || '',
-      img:   urlFor(rawFeatured.image).width(800).quality(70).auto('format').url(),
+      img:   urlFor(rawFeatured.image).width(1400).quality(80).auto('format').url(),
       slug:  rawFeatured.slug || ''
     };
   }

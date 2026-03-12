@@ -246,6 +246,28 @@ Netlify runs: `node seed-cache.mjs && npm run build`
 
 ---
 
+## Image Quality Settings (Sanity `urlFor()`)
+
+All images are served through Sanity's image CDN via `urlFor()`. The width and quality parameters control crispness vs file size. On Retina/HiDPI displays (2x pixel density), the served width should be ~2x the CSS display width for crisp rendering.
+
+| Page | Element | Width | Quality | Notes |
+|------|---------|-------|---------|-------|
+| Photo detail | Hero image | 1800px | 80% | 2x for Retina on 58% viewport (~900px CSS) |
+| Photo detail | Related shots | 800px | 80% | Small thumbnails, moderate quality |
+| Homepage | Mosaic tiles | 800px | 75% | Grid cells vary by screen size |
+| Homepage | Mosaic thumbnails | 300x300 | 65% | Tiny crossfade swap slots |
+| Homepage | Featured photo | 1400px | 80% | Large hero display |
+| Collections | Grid thumbnails | 600x600 | 70% | Square crops for category tiles |
+| Category | Photo grid | 800px | 75% | Gallery grid items |
+
+**Image protection is independent of resolution** — shields, right-click blocking, drag prevention, and context menu blocking are CSS/JS layers that work regardless of image size. Higher resolution does not make images easier to steal.
+
+**If images feel soft:** The most likely cause is the width being less than 2x the CSS display width on Retina screens. Bump the `width()` parameter. Quality below 70% also introduces visible JPEG artifacts on detailed photos.
+
+**If page loads feel slow:** Reduce quality first (80→70), then width. The `auto('format')` parameter already serves WebP to supported browsers, which is ~30% smaller than JPEG at equivalent quality.
+
+---
+
 ## Git Configuration
 
 - **User**: `user.email="albavt92@gmail.com"`, `user.name="Alba Tull"`
